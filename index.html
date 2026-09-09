@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#12263a" />
+<meta name="description" content="QuéLlevo — organizá asados, fiestas y cenas: cada uno marca qué lleva." />
+<title>QuéLlevo</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<style>
+:root {
+  --navy:#12263a; --teal:#0f766e; --sand:#f6f1e8; --ink:#102033;
+  --muted:#5b6b7c; --line:#e4ddd2; --ok:#15803d; --warn:#b45309;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; font-family:"Segoe UI",system-ui,sans-serif; color:var(--ink);
+  background:linear-gradient(180deg,#d8f0ec 0%,var(--sand) 40%,#fff 100%);
+  min-height:100vh;
+}
+.wrap { width:min(520px, calc(100% - 28px)); margin:0 auto; padding:20px 0 48px; }
+.brand { font-weight:900; font-size:28px; color:var(--navy); }
+.brand span { color:var(--teal); }
+.tag { color:var(--muted); font-size:14px; margin:6px 0 20px; }
+.card {
+  background:#fff; border:1px solid var(--line); border-radius:16px;
+  padding:16px; margin-bottom:14px; box-shadow:0 8px 24px rgba(18,38,58,.06);
+}
+h1 { font-size:22px; margin:0 0 8px; }
+h2 { font-size:16px; margin:0 0 10px; }
+label { display:grid; gap:4px; font-size:13px; font-weight:700; margin-bottom:10px; }
+input { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid #cfc6b8; }
+.row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--teal); color:#fff; border:0; border-radius:12px;
+  padding:12px 16px; font-weight:800; font-size:15px; cursor:pointer; width:100%;
+  text-decoration:none;
+}
+.btn:disabled { opacity:.55; }
+.btn-ghost { background:#dcefec; color:var(--navy); }
+.btn-navy { background:var(--navy); }
+.btn-sm { width:auto; padding:8px 12px; font-size:13px; }
+.actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 12px; }
+.chip {
+  border:1px solid var(--line); background:#fff; border-radius:999px;
+  padding:8px 12px; font-weight:800; font-size:13px; cursor:pointer;
+}
+.chip.on { background:var(--navy); color:#fff; border-color:var(--navy); }
+.item {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:12px 0; border-bottom:1px solid var(--line);
+}
+.item:last-child { border-bottom:0; }
+.item .name { font-weight:800; }
+.item .who { font-size:13px; color:var(--muted); }
+.badge {
+  display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase;
+  letter-spacing:.04em; padding:4px 8px; border-radius:999px; background:#fef3c7; color:var(--warn);
+}
+.badge.free { background:#dcfce7; color:var(--ok); }
+.muted { color:var(--muted); font-size:13px; }
+.err { color:#b91c1c; font-size:13px; margin-top:8px; }
+.okmsg { color:var(--ok); font-size:13px; margin-top:8px; }
+.hidden { display:none !important; }
+.code {
+  font-family:ui-monospace,monospace; background:var(--sand); padding:8px 10px;
+  border-radius:8px; font-weight:800; letter-spacing:.06em;
+}
+footer { margin-top:24px; color:var(--muted); font-size:12px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">Qué<span>Llevo</span></div>
+  <p class="tag">Asados, fiestas y cenas: cada uno marca qué lleva.</p>
+
+  <section id="homeView" class="card">
+    <h1>Crear evento</h1>
+    <div class="chips" id="kindChips">
+      <button type="button" class="chip on" data-kind="asado">Asado</button>
+      <button type="button" class="chip" data-kind="fiesta">Fiesta</button>
+      <button type="button" class="chip" data-kind="cena">Cena</button>
+      <button type="button" class="chip" data-kind="otro">Otro</button>
+    </div>
+    <label>Título<input id="title" placeholder="Asado del domingo" maxlength="80" /></label>
+    <div class="row">
+      <label>Tu nombre<input id="host" placeholder="Victor" maxlength="40" /></label>
+      <label>Fecha<input id="when" type="datetime-local" /></label>
+    </div>
+    <label>Lugar (opcional)<input id="place" placeholder="Casa de…" maxlength="80" /></label>
+    <button class="btn" id="createBtn" type="button">Crear y compartir</button>
+    <p class="muted" id="homeHint">Gratis · sin cuenta · link para el grupo</p>
+    <p class="err hidden" id="homeErr"></p>
+  </section>
+
+  <section id="eventView" class="hidden">
+    <div class="card">
+      <div class="badge" id="kindBadge">asado</div>
+      <h1 id="eventTitle">Evento</h1>
+      <p class="muted" id="eventMeta"></p>
+      <p>Código: <span class="code" id="eventCode"></span></p>
+      <div class="actions">
+        <button class="btn btn-navy btn-sm" id="copyLink" type="button">Copiar link</button>
+        <a class="btn btn-ghost btn-sm" id="waShare" href="#" target="_blank" rel="noopener">WhatsApp</a>
+        <button class="btn btn-ghost btn-sm" id="newEvent" type="button">Otro evento</button>
+      </div>
+      <p class="okmsg hidden" id="shareOk">Link copiado</p>
+    </div>
+    <div class="card">
+      <h2>¿Qué llevamos?</h2>
+      <div id="itemList"></div>
+      <div class="actions" style="margin-top:8px">
+        <input id="newItem" placeholder="Agregar algo…" maxlength="60" style="flex:1;min-width:140px" />
+        <button class="btn btn-sm" id="addItem" type="button" style="width:auto">Agregar</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Tu nombre</h2>
+      <label style="margin:0"><input id="guestName" placeholder="Para anotar qué llevás" maxlength="40" /></label>
+      <p class="muted">Se guarda en este celular.</p>
+    </div>
+  </section>
+  <footer>QuéLlevo · MVP gratis</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1"></script>
+<script src="app.js"></script>
+</body>
+</html>
