@@ -1,21 +1,55 @@
-
 const SITE = { supabaseUrl: "https://kslhlktxlgtgoquhjhnz.supabase.co", supabaseKey: "sb_publishable_fV1Dv_25YI2BUwnT9AB0-w_aPtvpLUT" };
+
+const CATEGORIES = ["carne", "bebida", "ensalada", "postre", "carbon", "otro"];
+const CAT_LABEL = {
+  carne: "Carne",
+  bebida: "Bebida",
+  ensalada: "Ensalada",
+  postre: "Postre",
+  carbon: "Carbón",
+  otro: "Otro",
+};
 const TEMPLATES = {
-  asado: ["Carne / vacío", "Carbón", "Ensalada", "Pan", "Bebidas", "Postre", "Sal / chimichurri"],
-  fiesta: ["Bebidas", "Hielo", "Snacks", "Música", "Vasos", "Algo dulce"],
-  cena: ["Plato principal", "Guarnición", "Ensalada", "Pan", "Vino / bebida", "Postre"],
-  otro: ["Traer algo", "Bebidas", "Extra"],
+  asado: [
+    { label: "Carne / vacío", category: "carne" },
+    { label: "Carbón", category: "carbon" },
+    { label: "Ensalada", category: "ensalada" },
+    { label: "Pan", category: "otro" },
+    { label: "Bebidas", category: "bebida" },
+    { label: "Postre", category: "postre" },
+    { label: "Sal / chimichurri", category: "otro" },
+  ],
+  fiesta: [
+    { label: "Bebidas", category: "bebida" },
+    { label: "Hielo", category: "bebida" },
+    { label: "Snacks", category: "otro" },
+    { label: "Música", category: "otro" },
+    { label: "Vasos", category: "otro" },
+    { label: "Algo dulce", category: "postre" },
+  ],
+  cena: [
+    { label: "Plato principal", category: "carne" },
+    { label: "Guarnición", category: "otro" },
+    { label: "Ensalada", category: "ensalada" },
+    { label: "Pan", category: "otro" },
+    { label: "Vino / bebida", category: "bebida" },
+    { label: "Postre", category: "postre" },
+  ],
+  otro: [
+    { label: "Traer algo", category: "otro" },
+    { label: "Bebidas", category: "bebida" },
+    { label: "Extra", category: "otro" },
+  ],
 };
 const KIND_LABEL = { asado: "Asado", fiesta: "Fiesta", cena: "Cena", otro: "Otro" };
 const KIND_SPONSOR = { carniceria: "Carnicería", super: "Súper", bebidas: "Bebidas", otro: "Comercio" };
+const RSVP_LABEL = { voy: "Voy", talvez: "Tal vez", no: "No voy" };
 
-/** Contacto para comercios interesados (editable en config.js). */
 const BIZ = {
   email: (window.QUELLEVO_CONFIG && window.QUELLEVO_CONFIG.bizEmail) || "victor11espindola@gmail.com",
   whatsapp: (window.QUELLEVO_CONFIG && window.QUELLEVO_CONFIG.bizWhatsApp) || "5493756000000",
 };
 
-/** Demo local — Paso de los Libres (inventados, flag demo:true). */
 const DEMO_SPONSORS = [
   {
     id: "demo-elcorte",
@@ -26,6 +60,7 @@ const DEMO_SPONSORS = [
     url: null,
     city: "Paso de los Libres",
     active: true,
+    pending: false,
     sort: 1,
     expires_at: null,
     demo: true,
@@ -39,6 +74,7 @@ const DEMO_SPONSORS = [
     url: "https://example.com/super-libres-demo",
     city: "Paso de los Libres",
     active: true,
+    pending: false,
     sort: 2,
     expires_at: null,
     demo: true,
@@ -52,6 +88,7 @@ const DEMO_SPONSORS = [
     url: null,
     city: "Paso de los Libres",
     active: true,
+    pending: false,
     sort: 3,
     expires_at: null,
     demo: true,
@@ -63,6 +100,12 @@ let kind = "asado", sb = null, online = false, eventRow = null, items = [];
 let sponsors = DEMO_SPONSORS.slice();
 let sponsorsExpanded = false;
 let sponsorsCollapsed = false;
+/** @type {Record<string, string>} name lower -> voy|talvez|no */
+let rsvps = {};
+let rsvpTableOk = false;
+let guestsColOk = false;
+let categoryColOk = true;
+let toastTimer = null;
 
 function el(id) { return document.getElementById(id); }
 function codeGen() {
@@ -72,24 +115,51 @@ function codeGen() {
   return s;
 }
 function escapeHtml(s) {
-  return String(s || "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
 }
 function myName() { return (el("guestName").value || localStorage.getItem("ql_name") || "").trim(); }
-function setMyName(n) { el("guestName").value = n; try { localStorage.setItem("ql_name", n); } catch (_) {} }
+function setMyName(n) {
+  n = String(n || "").trim();
+  if (el("guestName")) el("guestName").value = n;
+  try { localStorage.setItem("ql_name", n); } catch (_) {}
+}
+function eventCodeFromUrl() {
+  const q = new URLSearchParams(location.search);
+  return (q.get("e") || q.get("c") || "").trim().toUpperCase();
+}
+function isBizMode() {
+  const q = new URLSearchParams(location.search);
+  if (q.get("biz") === "1") return true;
+  return (location.hash || "").toLowerCase() === "#negocios" && !eventCodeFromUrl() && q.get("biz") === "1";
+}
 function eventUrl(code) {
   const u = new URL(location.href);
+  u.search = "";
   u.searchParams.set("e", code);
   u.hash = "";
   return u.toString();
 }
 function showErr(msg) {
   const e = el("homeErr");
+  if (!e) return;
   e.textContent = msg || "";
   e.classList.toggle("hidden", !msg);
 }
+function toast(msg) {
+  const t = el("toast");
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
+}
+function normCat(c) {
+  const x = String(c || "otro").toLowerCase();
+  return CATEGORIES.includes(x) ? x : "otro";
+}
 function bizPublishHref() {
   const subject = encodeURIComponent("QuéLlevo — quiero publicar una oferta");
-  const body = encodeURIComponent("Hola Victor,\n\nTengo un comercio en Paso de los Libres y me gustaría auspicar en QuéLlevo.\n\nNombre del local:\nTipo (carnicería / súper):\nPromo:\nWhatsApp:\n");
+  const body = encodeURIComponent("Hola Victor,\n\nTengo un comercio y me gustaría auspicar en QuéLlevo.\n\nNombre del local:\nTipo (carnicería / súper):\nPromo:\nWhatsApp:\nCiudad:\n");
   if (BIZ.email) return "mailto:" + BIZ.email + "?subject=" + subject + "&body=" + body;
   const wa = String(BIZ.whatsapp || "").replace(/\D/g, "");
   return "https://wa.me/" + wa + "?text=" + encodeURIComponent("Hola, quiero publicar una oferta en QuéLlevo");
@@ -110,27 +180,37 @@ function activeSponsors(list) {
   const now = Date.now();
   return (list || []).filter((s) => {
     if (s.active === false) return false;
+    if (s.pending === true && !s.demo) return false;
     if (s.expires_at) {
       try { if (new Date(s.expires_at).getTime() < now) return false; } catch (_) {}
     }
     return true;
   }).slice().sort((a, b) => (a.sort || 0) - (b.sort || 0));
 }
+
 async function loadSponsors() {
   sponsors = DEMO_SPONSORS.slice();
   if (sb) {
     try {
-      const { data, error } = await sb.from("quellevo_sponsors")
-        .select("id,name,kind,promo_text,whatsapp,url,city,active,sort,expires_at")
+      let data = null, error = null;
+      ({ data, error } = await sb.from("quellevo_sponsors")
+        .select("id,name,kind,promo_text,whatsapp,url,city,active,sort,expires_at,pending")
         .eq("active", true)
-        .order("sort", { ascending: true });
-      if (!error && data && data.length) {
-        sponsors = data.map((row) => Object.assign({ demo: false }, row));
+        .order("sort", { ascending: true }));
+      if (error) {
+        ({ data, error } = await sb.from("quellevo_sponsors")
+          .select("id,name,kind,promo_text,whatsapp,url,city,active,sort,expires_at")
+          .eq("active", true)
+          .order("sort", { ascending: true }));
       }
-    } catch (_) { /* table may not exist yet → keep demo */ }
+      if (!error && data && data.length) {
+        sponsors = data.map((row) => Object.assign({ demo: false, pending: false }, row));
+      }
+    } catch (_) { /* keep demo */ }
   }
   renderSponsors();
 }
+
 function renderSponsors() {
   const listEl = el("sponsorsList");
   const moreBtn = el("sponsorsMore");
@@ -139,7 +219,7 @@ function renderSponsors() {
   const toggle = el("sponsorsToggle");
   const biz = el("sponsorsBizLink");
   if (!listEl) return;
-  if (biz) biz.href = bizPublishHref();
+  if (biz) biz.href = "?biz=1";
   const list = activeSponsors(sponsors);
   const allDemo = list.length && list.every((s) => s.demo);
   if (hint) hint.classList.toggle("hidden", !allDemo);
@@ -173,6 +253,7 @@ function renderSponsors() {
   moreBtn.classList.toggle("hidden", !hasMore);
   moreBtn.textContent = sponsorsExpanded ? "Ver menos" : ("Ver más (" + (list.length - SPONSORS_VISIBLE) + ")");
 }
+
 async function initSb() {
   try {
     const url = (window.QUELLEVO_CONFIG && window.QUELLEVO_CONFIG.supabaseUrl) || SITE.supabaseUrl;
@@ -182,21 +263,53 @@ async function initSb() {
     const { error } = await sb.from("quellevo_events").select("id").limit(1);
     if (error) {
       online = false;
-      el("homeHint").textContent = "Modo local (este celular). Para compartir entre varios, corré el SQL en Supabase una vez.";
+      if (el("homeHint")) {
+        el("homeHint").textContent = "Modo local (este celular). Para compartir entre varios, corré el SQL en Supabase una vez.";
+      }
       return false;
     }
     online = true;
-    el("homeHint").textContent = "Gratis · sin cuenta · link para el grupo (sync online)";
+    if (el("homeHint")) el("homeHint").textContent = "Gratis · sin cuenta · link para el grupo (sync online)";
+    // Probe optional schema
+    try {
+      const { error: eCat } = await sb.from("quellevo_items").select("category").limit(1);
+      categoryColOk = !eCat;
+    } catch (_) { categoryColOk = false; }
+    try {
+      const { error: eR } = await sb.from("quellevo_rsvps").select("id").limit(1);
+      rsvpTableOk = !eR;
+    } catch (_) { rsvpTableOk = false; }
+    try {
+      const { error: eG } = await sb.from("quellevo_events").select("guests").limit(1);
+      guestsColOk = !eG;
+    } catch (_) { guestsColOk = false; }
     return true;
-  } catch (e) { online = false; return false; }
+  } catch (e) {
+    online = false;
+    return false;
+  }
 }
+
 function localSave() {
   if (!eventRow) return;
-  try { localStorage.setItem("ql_event_" + eventRow.code, JSON.stringify({ event: eventRow, items })); } catch (_) {}
+  try {
+    localStorage.setItem("ql_event_" + eventRow.code, JSON.stringify({ event: eventRow, items, rsvps }));
+  } catch (_) {}
 }
 function localLoad(code) {
   try { return JSON.parse(localStorage.getItem("ql_event_" + code) || "null"); } catch (_) { return null; }
 }
+function localRsvpKey(code) { return "ql_rsvp_" + code; }
+function loadLocalRsvps(code) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(localRsvpKey(code)) || "{}");
+    return raw && typeof raw === "object" ? raw : {};
+  } catch (_) { return {}; }
+}
+function saveLocalRsvps(code, map) {
+  try { localStorage.setItem(localRsvpKey(code), JSON.stringify(map || {})); } catch (_) {}
+}
+
 async function createEvent() {
   showErr("");
   const title = (el("title").value || "").trim() || (KIND_LABEL[kind] + " juntos");
@@ -213,22 +326,44 @@ async function createEvent() {
         code, title, kind, place: place || null, event_at: when, host_name: host,
       }).select("*").single();
       if (error) throw error;
-      const rows = templates.map((label) => ({ event_id: ev.id, label }));
+      const rows = templates.map((t) => {
+        const row = { event_id: ev.id, label: t.label };
+        if (categoryColOk) row.category = t.category;
+        return row;
+      });
       const { data: its, error: e2 } = await sb.from("quellevo_items").insert(rows).select("*");
       if (e2) throw e2;
-      eventRow = ev; items = its || [];
+      eventRow = ev;
+      items = (its || []).map((it) => Object.assign({ category: "otro" }, it));
+      rsvps = {};
+      // Organizer defaults to Voy
+      await setRsvp("voy", host, true);
     } else {
       eventRow = { id: "local-" + code, code, title, kind, place, event_at: when, host_name: host };
-      items = templates.map((label, i) => ({ id: "li-" + i + "-" + code, event_id: eventRow.id, label, claimed_by: null }));
+      items = templates.map((t, i) => ({
+        id: "li-" + i + "-" + code,
+        event_id: eventRow.id,
+        label: t.label,
+        category: t.category,
+        claimed_by: null,
+      }));
+      rsvps = {};
+      rsvps[host.toLowerCase()] = "voy";
+      saveLocalRsvps(code, rsvps);
       localSave();
     }
     history.replaceState(null, "", "?e=" + code);
-    renderEvent();
+    showViews("event");
+    renderEvent(true);
+    toast("¡Evento creado! Compartí este link.");
   } catch (e) {
     console.error(e);
     showErr("No se pudo crear. Si querés sync online, corré supabase-quellevo.sql en Supabase.");
-  } finally { el("createBtn").disabled = false; }
+  } finally {
+    el("createBtn").disabled = false;
+  }
 }
+
 async function loadEvent(code) {
   code = String(code || "").trim().toUpperCase();
   if (!code) return;
@@ -236,95 +371,303 @@ async function loadEvent(code) {
     if (online) {
       const { data: ev, error } = await sb.from("quellevo_events").select("*").eq("code", code).maybeSingle();
       if (error) throw error;
-      if (!ev) { showErr("No encontré ese evento."); return; }
+      if (!ev) { showErr("No encontré ese evento."); showViews("landing"); return; }
       const { data: its, error: e2 } = await sb.from("quellevo_items").select("*").eq("event_id", ev.id).order("created_at");
       if (e2) throw e2;
-      eventRow = ev; items = its || [];
+      eventRow = ev;
+      items = (its || []).map((it) => Object.assign({ category: normCat(it.category) }, it));
+      await loadRsvps();
     } else {
       const pack = localLoad(code);
-      if (!pack) { showErr("En modo local solo ves eventos creados en este celular."); return; }
-      eventRow = pack.event; items = pack.items || [];
+      if (!pack) {
+        showErr("En modo local solo ves eventos creados en este celular.");
+        showViews("landing");
+        return;
+      }
+      eventRow = pack.event;
+      items = (pack.items || []).map((it) => Object.assign({ category: normCat(it.category) }, it));
+      rsvps = pack.rsvps || loadLocalRsvps(code);
     }
-    renderEvent();
-  } catch (e) { console.error(e); showErr("Error al cargar el evento."); }
+    showViews("event");
+    renderEvent(false);
+  } catch (e) {
+    console.error(e);
+    showErr("Error al cargar el evento.");
+  }
 }
-function renderEvent() {
-  el("homeView").classList.add("hidden");
-  el("eventView").classList.remove("hidden");
+
+async function loadRsvps() {
+  if (!eventRow) { rsvps = {}; return; }
+  const local = loadLocalRsvps(eventRow.code);
+  rsvps = Object.assign({}, local);
+  if (!online) return;
+  if (rsvpTableOk) {
+    try {
+      const { data, error } = await sb.from("quellevo_rsvps").select("guest_name,status").eq("event_id", eventRow.id);
+      if (!error && data) {
+        data.forEach((r) => {
+          if (r.guest_name && r.status) rsvps[String(r.guest_name).toLowerCase()] = r.status;
+        });
+      }
+    } catch (_) {}
+  } else if (guestsColOk && Array.isArray(eventRow.guests)) {
+    eventRow.guests.forEach((g) => {
+      if (g && g.name && g.status) rsvps[String(g.name).toLowerCase()] = g.status;
+    });
+  }
+}
+
+async function setRsvp(status, nameOverride, silent) {
+  const name = (nameOverride || myName()).trim();
+  if (!name) {
+    if (!silent) {
+      alert("Escribí tu nombre abajo para confirmar asistencia.");
+      el("guestName").focus();
+    }
+    return;
+  }
+  if (!eventRow) return;
+  setMyName(name);
+  const key = name.toLowerCase();
+  rsvps[key] = status;
+  saveLocalRsvps(eventRow.code, rsvps);
+  localSave();
+  renderRsvp();
+  if (!online) {
+    if (!silent) toast("Listo: " + (RSVP_LABEL[status] || status));
+    return;
+  }
+  try {
+    if (rsvpTableOk) {
+      await sb.from("quellevo_rsvps").upsert(
+        { event_id: eventRow.id, guest_name: name, status },
+        { onConflict: "event_id,guest_name" }
+      );
+    } else if (guestsColOk) {
+      const list = Object.keys(rsvps).map((k) => {
+        const display = k === key ? name : k;
+        return { name: display, status: rsvps[k] };
+      });
+      await sb.from("quellevo_events").update({ guests: list }).eq("id", eventRow.id);
+    }
+  } catch (e) { console.error(e); }
+  if (!silent) toast("Listo: " + (RSVP_LABEL[status] || status));
+}
+
+function renderRsvp() {
+  const summary = el("rsvpSummary");
+  const mine = myName().toLowerCase();
+  document.querySelectorAll(".rsvp-btn").forEach((b) => {
+    const st = b.getAttribute("data-rsvp");
+    b.classList.toggle("rsvp-on", !!(mine && rsvps[mine] === st));
+  });
+  const counts = { voy: 0, talvez: 0, no: 0 };
+  Object.values(rsvps).forEach((s) => { if (counts[s] != null) counts[s]++; });
+  const parts = [];
+  if (counts.voy) parts.push(counts.voy + " van");
+  if (counts.talvez) parts.push(counts.talvez + " tal vez");
+  if (counts.no) parts.push(counts.no + " no van");
+  if (summary) summary.textContent = parts.length ? parts.join(" · ") : "Todavía nadie confirmó.";
+}
+
+function renderEvent(justCreated) {
   el("kindBadge").textContent = KIND_LABEL[eventRow.kind] || eventRow.kind;
   el("eventTitle").textContent = eventRow.title;
   const bits = [];
   if (eventRow.host_name) bits.push("Organiza " + eventRow.host_name);
   if (eventRow.place) bits.push(eventRow.place);
-  if (eventRow.event_at) { try { bits.push(new Date(eventRow.event_at).toLocaleString("es-AR")); } catch (_) {} }
-  el("eventMeta").textContent = bits.join(" · ");
+  if (eventRow.event_at) {
+    try { bits.push(new Date(eventRow.event_at).toLocaleString("es-AR")); } catch (_) {}
+  }
+  el("eventMeta").textContent = bits.join(" · ") || "Sin fecha ni lugar todavía";
   el("eventCode").textContent = eventRow.code;
   const link = eventUrl(eventRow.code);
-  el("waShare").href = "https://wa.me/?text=" + encodeURIComponent("QuéLlevo — " + eventRow.title + "\nAnotá qué llevás:\n" + link);
+  if (el("shareLinkText")) el("shareLinkText").textContent = link;
+  el("waShare").href = "https://wa.me/?text=" + encodeURIComponent(
+    "QuéLlevo — " + eventRow.title + "\nAnotá qué llevás acá:\n" + link + "\n(También con el código " + eventRow.code + ")"
+  );
   renderItems();
+  renderRsvp();
   loadSponsors();
+  if (justCreated) { /* toast already shown */ }
 }
+
 function renderItems() {
   const root = el("itemList");
-  if (!items.length) { root.innerHTML = "<p class='muted'>Todavía no hay nada en la lista.</p>"; return; }
-  root.innerHTML = items.map((it) => {
-    const claimed = !!(it.claimed_by && String(it.claimed_by).trim());
-    const mine = claimed && myName() && it.claimed_by.trim().toLowerCase() === myName().toLowerCase();
-    let btn = "";
-    if (!claimed) btn = '<button class="btn btn-sm" data-claim="' + escapeHtml(it.id) + '" type="button">Yo llevo</button>';
-    else if (mine) btn = '<button class="btn btn-ghost btn-sm" data-unclaim="' + escapeHtml(it.id) + '" type="button">Soltar</button>';
-    else btn = '<span class="badge">ocupado</span>';
-    return '<div class="item"><div><div class="name">' + escapeHtml(it.label) + '</div><div class="who">' +
-      (claimed ? ("Lleva: " + escapeHtml(it.claimed_by)) : "<span class='badge free'>libre</span>") +
-      "</div></div>" + btn + "</div>";
-  }).join("");
+  if (!items.length) {
+    root.innerHTML = "<p class='muted'>Todavía no hay nada en la lista.</p>";
+    return;
+  }
+  const byCat = {};
+  CATEGORIES.forEach((c) => { byCat[c] = []; });
+  items.forEach((it) => {
+    const c = normCat(it.category);
+    byCat[c].push(it);
+  });
+  let html = "";
+  CATEGORIES.forEach((c) => {
+    const list = byCat[c];
+    if (!list.length) return;
+    html += '<div class="cat-group"><div class="cat-title">' + escapeHtml(CAT_LABEL[c]) + "</div>";
+    html += list.map((it) => {
+      const claimed = !!(it.claimed_by && String(it.claimed_by).trim());
+      const mine = claimed && myName() && it.claimed_by.trim().toLowerCase() === myName().toLowerCase();
+      let btn = "";
+      if (!claimed) btn = '<button class="btn btn-sm" data-claim="' + escapeHtml(it.id) + '" type="button">Yo llevo</button>';
+      else if (mine) btn = '<button class="btn btn-ghost btn-sm" data-unclaim="' + escapeHtml(it.id) + '" type="button">Soltar</button>';
+      else btn = '<span class="badge">ocupado</span>';
+      return (
+        '<div class="item"><div><div class="name">' + escapeHtml(it.label) + '</div><div class="who">' +
+        (claimed ? ("Lleva: " + escapeHtml(it.claimed_by)) : "<span class='badge free'>libre</span>") +
+        "</div></div>" + btn + "</div>"
+      );
+    }).join("");
+    html += "</div>";
+  });
+  root.innerHTML = html;
   root.querySelectorAll("[data-claim]").forEach((b) => b.addEventListener("click", () => claim(b.getAttribute("data-claim"))));
   root.querySelectorAll("[data-unclaim]").forEach((b) => b.addEventListener("click", () => unclaim(b.getAttribute("data-unclaim"))));
 }
+
 async function claim(id) {
   const name = myName();
   if (!name) { alert("Escribí tu nombre abajo para anotar."); el("guestName").focus(); return; }
-  const it = items.find((x) => x.id === id);
+  const it = items.find((x) => String(x.id) === String(id));
   if (!it || it.claimed_by) return;
   try {
     if (online) {
       const { error } = await sb.from("quellevo_items").update({ claimed_by: name }).eq("id", id).is("claimed_by", null);
       if (error) throw error;
       await refreshItems();
-    } else { it.claimed_by = name; localSave(); renderItems(); }
-  } catch (e) { console.error(e); alert("No se pudo anotar."); await refreshItems(); }
+    } else {
+      it.claimed_by = name;
+      localSave();
+      renderItems();
+    }
+  } catch (e) {
+    console.error(e);
+    alert("No se pudo anotar.");
+    await refreshItems();
+  }
 }
+
 async function unclaim(id) {
-  const it = items.find((x) => x.id === id);
+  const it = items.find((x) => String(x.id) === String(id));
   if (!it) return;
   try {
     if (online) {
       const { error } = await sb.from("quellevo_items").update({ claimed_by: null }).eq("id", id);
       if (error) throw error;
       await refreshItems();
-    } else { it.claimed_by = null; localSave(); renderItems(); }
-  } catch (e) { console.error(e); alert("No se pudo soltar."); }
+    } else {
+      it.claimed_by = null;
+      localSave();
+      renderItems();
+    }
+  } catch (e) {
+    console.error(e);
+    alert("No se pudo soltar.");
+  }
 }
+
 async function addItem() {
   const label = (el("newItem").value || "").trim();
   if (!label || !eventRow) return;
+  const category = normCat(el("newItemCat") && el("newItemCat").value);
   el("newItem").value = "";
   try {
     if (online) {
-      const { error } = await sb.from("quellevo_items").insert({ event_id: eventRow.id, label });
+      const row = { event_id: eventRow.id, label };
+      if (categoryColOk) row.category = category;
+      const { error } = await sb.from("quellevo_items").insert(row);
       if (error) throw error;
       await refreshItems();
     } else {
-      items.push({ id: "li-" + Date.now(), event_id: eventRow.id, label, claimed_by: null });
-      localSave(); renderItems();
+      items.push({ id: "li-" + Date.now(), event_id: eventRow.id, label, category, claimed_by: null });
+      localSave();
+      renderItems();
     }
-  } catch (e) { console.error(e); alert("No se pudo agregar."); }
+  } catch (e) {
+    console.error(e);
+    alert("No se pudo agregar.");
+  }
 }
+
 async function refreshItems() {
   if (!online || !eventRow) return;
   const { data, error } = await sb.from("quellevo_items").select("*").eq("event_id", eventRow.id).order("created_at");
-  if (!error) { items = data || []; renderItems(); }
+  if (!error) {
+    items = (data || []).map((it) => Object.assign({ category: normCat(it.category) }, it));
+    renderItems();
+  }
 }
+
+function showViews(which) {
+  const landing = el("landingView");
+  const eventV = el("eventView");
+  const biz = el("bizView");
+  const nav = el("miniNav");
+  if (landing) landing.classList.toggle("hidden", which !== "landing");
+  if (eventV) eventV.classList.toggle("hidden", which !== "event");
+  if (biz) biz.classList.toggle("hidden", which !== "biz");
+  if (nav) nav.classList.toggle("hidden", which === "event" || which === "biz");
+}
+
+async function submitBiz() {
+  const name = (el("bizName").value || "").trim();
+  const kindVal = el("bizKind").value || "otro";
+  const promo = (el("bizPromo").value || "").trim();
+  const wa = (el("bizWa").value || "").trim();
+  const city = (el("bizCity").value || "").trim() || "Paso de los Libres";
+  const ok = el("bizOk");
+  const err = el("bizErr");
+  ok.classList.add("hidden");
+  err.classList.add("hidden");
+  if (!name || !promo) {
+    err.textContent = "Completá nombre y promo.";
+    err.classList.remove("hidden");
+    return;
+  }
+  el("bizSubmit").disabled = true;
+  try {
+    if (online && sb) {
+      const row = {
+        name,
+        kind: kindVal,
+        promo_text: promo,
+        whatsapp: wa || null,
+        city,
+        active: false,
+        pending: true,
+        sort: 200,
+      };
+      const { error } = await sb.from("quellevo_sponsors").insert(row);
+      if (error) throw error;
+      ok.textContent = "¡Enviado! Queda pendiente de aprobación.";
+      ok.classList.remove("hidden");
+      toast("Oferta enviada · pendiente");
+      el("bizName").value = "";
+      el("bizPromo").value = "";
+      el("bizWa").value = "";
+    } else {
+      throw new Error("offline");
+    }
+  } catch (e) {
+    console.error(e);
+    // Fallback mailto
+    const subject = encodeURIComponent("QuéLlevo — oferta de " + name);
+    const body = encodeURIComponent(
+      "Nombre: " + name + "\nTipo: " + kindVal + "\nPromo: " + promo + "\nWhatsApp: " + wa + "\nCiudad: " + city + "\n"
+    );
+    err.textContent = "No se pudo guardar online. Te abrimos un mail a Victor…";
+    err.classList.remove("hidden");
+    window.location.href = "mailto:" + BIZ.email + "?subject=" + subject + "&body=" + body;
+  } finally {
+    el("bizSubmit").disabled = false;
+  }
+}
+
+// --- wire UI ---
 el("kindChips").addEventListener("click", (e) => {
   const b = e.target.closest("[data-kind]");
   if (!b) return;
@@ -334,19 +677,26 @@ el("kindChips").addEventListener("click", (e) => {
 el("createBtn").addEventListener("click", createEvent);
 el("addItem").addEventListener("click", addItem);
 el("newItem").addEventListener("keydown", (e) => { if (e.key === "Enter") addItem(); });
-el("guestName").addEventListener("change", () => { setMyName(el("guestName").value); renderItems(); });
+el("guestName").addEventListener("change", () => {
+  setMyName(el("guestName").value);
+  renderItems();
+  renderRsvp();
+});
 el("copyLink").addEventListener("click", async () => {
+  const link = eventUrl(eventRow.code);
   try {
-    await navigator.clipboard.writeText(eventUrl(eventRow.code));
-    el("shareOk").classList.remove("hidden");
-    setTimeout(() => el("shareOk").classList.add("hidden"), 2000);
-  } catch (_) { prompt("Copiá el link:", eventUrl(eventRow.code)); }
+    await navigator.clipboard.writeText(link);
+    toast("Link copiado");
+  } catch (_) {
+    prompt("Copiá el link:", link);
+  }
 });
 el("newEvent").addEventListener("click", () => {
-  history.replaceState(null, "", location.pathname);
-  eventRow = null; items = [];
-  el("eventView").classList.add("hidden");
-  el("homeView").classList.remove("hidden");
+  history.replaceState(null, "", location.pathname || "./");
+  eventRow = null;
+  items = [];
+  rsvps = {};
+  showViews("landing");
 });
 el("sponsorsToggle").addEventListener("click", () => {
   sponsorsCollapsed = !sponsorsCollapsed;
@@ -356,10 +706,52 @@ el("sponsorsMore").addEventListener("click", () => {
   sponsorsExpanded = !sponsorsExpanded;
   renderSponsors();
 });
+el("rsvpButtons").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-rsvp]");
+  if (!b) return;
+  setRsvp(b.getAttribute("data-rsvp"));
+});
+el("bizSubmit").addEventListener("click", submitBiz);
+el("brandHome").addEventListener("click", (e) => {
+  e.preventDefault();
+  history.replaceState(null, "", location.pathname || "./");
+  eventRow = null;
+  items = [];
+  showViews("landing");
+});
+el("termsLink").addEventListener("click", (e) => {
+  e.preventDefault();
+  toast("Términos: uso gratuito · el link es la llave · sin garantías MVP");
+});
+el("navCrear").addEventListener("click", () => {
+  if (el("landingView").classList.contains("hidden")) {
+    history.replaceState(null, "", location.pathname || "./");
+    showViews("landing");
+  }
+  setTimeout(() => {
+    const t = el("crear");
+    if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 50);
+});
+
 (async function boot() {
   const saved = localStorage.getItem("ql_name") || "";
-  if (saved) el("guestName").value = saved;
+  if (saved && el("guestName")) el("guestName").value = saved;
+  if (saved && el("host")) el("host").value = saved;
   await initSb();
-  const code = new URLSearchParams(location.search).get("e");
-  if (code) await loadEvent(code);
+  const q = new URLSearchParams(location.search);
+  if (q.get("biz") === "1") {
+    showViews("biz");
+    return;
+  }
+  const code = eventCodeFromUrl();
+  if (code) {
+    await loadEvent(code);
+  } else {
+    showViews("landing");
+    if ((location.hash || "").toLowerCase() === "#negocios") {
+      const n = el("negocios");
+      if (n) setTimeout(() => n.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+  }
 })();

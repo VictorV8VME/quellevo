@@ -4,145 +4,127 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#25D366" />
-<meta name="description" content="QuéLlevo — organizá asados, fiestas y cenas: cada uno marca qué lleva." />
+<meta name="description" content="QuéLlevo — organizá asados sin caos: cada uno anota qué lleva y los negocios ofrecen ofertas." />
 <title>QuéLlevo</title>
 <link rel="manifest" href="manifest.webmanifest" />
-<style>
-:root {
-  --navy:#1C1E21; --teal:#128C7E; --sand:#FFFBEA; --ink:#1C1E21;
-  --muted:#65676B; --line:#E8E0D0; --ok:#25D366; --warn:#FF0000;
-  --yellow:#FFE600; --primary:#1DA851; --primary-dark:#128C7E;
-  --brand-green:#25D366; --alert-soft:#FFE0E0;
-}
-* { box-sizing:border-box; }
-body {
-  margin:0; font-family:"Segoe UI",system-ui,sans-serif; color:var(--ink);
-  background:linear-gradient(180deg,#FFF3B8 0%,var(--sand) 38%,#FFFFFF 100%);
-  min-height:100vh;
-}
-.wrap { width:min(520px, calc(100% - 28px)); margin:0 auto; padding:20px 0 48px; }
-.brand { font-weight:900; font-size:28px; color:var(--ink); }
-.brand span {
-  color:var(--ink); background:var(--yellow);
-  padding:0 6px; border-radius:6px;
-}
-.tag { color:var(--muted); font-size:14px; margin:6px 0 20px; }
-.card {
-  background:#fff; border:1px solid var(--line); border-radius:16px;
-  padding:16px; margin-bottom:14px; box-shadow:0 10px 28px rgba(28,30,33,.12);
-}
-h1 { font-size:22px; margin:0 0 8px; }
-h2 { font-size:16px; margin:0 0 10px; }
-label { display:grid; gap:4px; font-size:13px; font-weight:700; margin-bottom:10px; }
-input { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid #D9D0C0; }
-.row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.btn {
-  display:inline-flex; align-items:center; justify-content:center;
-  background:var(--primary); color:#fff; border:0; border-radius:12px;
-  padding:12px 16px; font-weight:800; font-size:15px; cursor:pointer; width:100%;
-  text-decoration:none;
-}
-.btn:disabled { opacity:.55; }
-.btn-ghost { background:#E7F9EF; color:var(--ink); }
-.btn-navy { background:var(--ink); }
-.btn-sm { width:auto; padding:8px 12px; font-size:13px; }
-.actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-.chips { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 12px; }
-.chip {
-  border:1px solid var(--line); background:#fff; border-radius:999px;
-  padding:8px 12px; font-weight:800; font-size:13px; cursor:pointer;
-}
-.chip.on { background:var(--yellow); color:var(--ink); border-color:#E6CF00; }
-.item {
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  padding:12px 0; border-bottom:1px solid var(--line);
-}
-.item:last-child { border-bottom:0; }
-.item .name { font-weight:800; }
-.item .who { font-size:13px; color:var(--muted); }
-.badge {
-  display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase;
-  letter-spacing:.04em; padding:4px 8px; border-radius:999px;
-  background:var(--yellow); color:var(--ink);
-}
-.badge.free { background:#FFE0E0; color:#FF0000; }
-.badge.promo { background:#E7F9EF; color:#128C7E; }
-.badge.auspicia { background:#FFF6C8; color:var(--ink); }
-.muted { color:var(--muted); font-size:13px; }
-.err { color:#FF0000; font-size:13px; margin-top:8px; }
-.okmsg { color:var(--ok); font-size:13px; margin-top:8px; }
-.hidden { display:none !important; }
-.code {
-  font-family:ui-monospace,monospace; background:var(--sand); padding:8px 10px;
-  border-radius:8px; font-weight:800; letter-spacing:.06em;
-}
-footer { margin-top:24px; color:var(--muted); font-size:12px; text-align:center; }
-/* Sponsors / ofertas */
-.sponsors-head {
-  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;
-}
-.sponsors-head h2 { margin:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.sponsors-toggle {
-  border:0; background:#FFF6C8; color:var(--ink); border-radius:8px;
-  width:36px; height:36px; font-size:16px; cursor:pointer; font-weight:800;
-}
-.sponsor-card {
-  display:flex; flex-direction:column; gap:6px;
-  padding:10px 12px; margin-bottom:8px;
-  border:1px solid var(--line); border-radius:12px; background:#FFFEF7;
-}
-.sponsor-card:last-of-type { margin-bottom:0; }
-.sponsor-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.sponsor-name { font-weight:800; font-size:14px; }
-.sponsor-kind { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
-.sponsor-promo { font-size:13px; line-height:1.35; color:var(--ink); }
-.sponsor-cta { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
-.sponsor-cta .btn { width:auto; }
-.sponsors-more { width:100%; margin-top:8px; }
-.sponsors-biz { margin:10px 0 0; text-align:center; }
-.sponsors-biz a { color:var(--muted); text-decoration:underline; text-underline-offset:2px; font-size:12px; }
-.sponsors-biz a:hover { color:var(--primary); }
-.sponsors-body.collapsed .sponsor-card,
-.sponsors-body.collapsed .sponsors-more { display:none !important; }
-.sponsors-demo-hint { font-size:11px; color:var(--muted); margin:0 0 8px; }
-</style>
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 <div class="wrap">
-  <div class="brand">Qué<span>Llevo</span></div>
-  <p class="tag">Asados, fiestas y cenas: cada uno marca qué lleva.</p>
+  <header class="site-header">
+    <a class="brand" href="#" id="brandHome">Qué<span>Llevo</span></a>
+    <nav class="mini-nav" id="miniNav" aria-label="Principal">
+      <a href="#inicio">Inicio</a>
+      <a href="#como">Cómo funciona</a>
+      <a href="#negocios">Para negocios</a>
+      <a href="#crear" id="navCrear">Crear</a>
+    </nav>
+  </header>
 
-  <section id="homeView" class="card">
-    <h1>Crear evento</h1>
-    <div class="chips" id="kindChips">
-      <button type="button" class="chip on" data-kind="asado">Asado</button>
-      <button type="button" class="chip" data-kind="fiesta">Fiesta</button>
-      <button type="button" class="chip" data-kind="cena">Cena</button>
-      <button type="button" class="chip" data-kind="otro">Otro</button>
+  <!-- LANDING (sin ?e= / ?c=) -->
+  <section id="landingView">
+    <div class="hero card" id="inicio">
+      <h1>Organizá asados sin caos</h1>
+      <p class="tagline">Cada uno anota qué lleva y los negocios ofrecen ofertas. Sin cuenta. Solo un nombre.</p>
+      <a class="btn" href="#crear">Crear evento</a>
+      <p class="trust-note">Sin cuenta… Solo un nombre. Solo quien tenga el link ve el evento.</p>
     </div>
-    <label>Título<input id="title" placeholder="Asado del domingo" maxlength="80" /></label>
-    <div class="row">
-      <label>Tu nombre<input id="host" placeholder="Victor" maxlength="40" /></label>
-      <label>Fecha<input id="when" type="datetime-local" /></label>
+
+    <div class="card" id="como">
+      <h2>¿Cómo funciona?</h2>
+      <ol class="steps">
+        <li><strong>Creá</strong> el evento con fecha y lugar.</li>
+        <li><strong>Compartí</strong> el link por WhatsApp.</li>
+        <li><strong>Cada uno</strong> marca qué lleva y si va.</li>
+      </ol>
     </div>
-    <label>Lugar (opcional)<input id="place" placeholder="Casa de…" maxlength="80" /></label>
-    <button class="btn" id="createBtn" type="button">Crear y compartir</button>
-    <p class="muted" id="homeHint">Gratis · sin cuenta · link para el grupo</p>
-    <p class="err hidden" id="homeErr"></p>
+
+    <div class="card demo-card">
+      <div class="badge">Demo</div>
+      <h2>Asado del domingo</h2>
+      <p class="muted">Domingo 12:00 · Casa de Ana · Organiza Ana</p>
+      <div class="demo-people">
+        <div class="demo-row"><span>🥩 Vacío</span><span class="who">Lleva: Ana</span></div>
+        <div class="demo-row"><span>🥤 Bebidas</span><span class="who">Lleva: Nico</span></div>
+        <div class="demo-row"><span>🥗 Ensalada</span><span class="who">Lleva: Sofi</span></div>
+      </div>
+      <p class="muted demo-rsvp">3 personas · 2 van · 1 tal vez</p>
+    </div>
+
+    <section class="card" id="crear">
+      <h2>Crear evento</h2>
+      <div class="chips" id="kindChips">
+        <button type="button" class="chip on" data-kind="asado">Asado</button>
+        <button type="button" class="chip" data-kind="fiesta">Fiesta</button>
+        <button type="button" class="chip" data-kind="cena">Cena</button>
+        <button type="button" class="chip" data-kind="otro">Otro</button>
+      </div>
+      <label>Título<input id="title" placeholder="Asado del domingo" maxlength="80" autocomplete="off" /></label>
+      <div class="row">
+        <label>Tu nombre<input id="host" placeholder="Victor" maxlength="40" autocomplete="name" /></label>
+        <label>Fecha y hora<input id="when" type="datetime-local" /></label>
+      </div>
+      <label>Lugar (opcional)<input id="place" placeholder="Casa de…" maxlength="80" autocomplete="off" /></label>
+      <button class="btn" id="createBtn" type="button">Crear y compartir</button>
+      <p class="muted" id="homeHint">Gratis · sin cuenta · link para el grupo</p>
+      <p class="err hidden" id="homeErr"></p>
+    </section>
+
+    <section class="card" id="negocios">
+      <h2>Para negocios</h2>
+      <p class="muted">Publicá una oferta para asados en tu ciudad. La revisamos antes de mostrarla.</p>
+      <a class="btn btn-ghost" href="?biz=1" id="bizCta">Quiero publicar una oferta</a>
+    </section>
   </section>
 
+  <!-- BIZ PANEL (?biz=1) -->
+  <section id="bizView" class="hidden">
+    <div class="card">
+      <h1>Publicá tu oferta</h1>
+      <p class="muted">Queda pendiente de aprobación. Sin spam: solo ofertas útiles para asados.</p>
+      <label>Nombre del local<input id="bizName" placeholder="Carnicería El Corte" maxlength="80" /></label>
+      <label>Tipo
+        <select id="bizKind">
+          <option value="carniceria">Carnicería</option>
+          <option value="super">Súper</option>
+          <option value="bebidas">Bebidas</option>
+          <option value="otro">Otro</option>
+        </select>
+      </label>
+      <label>Promo / oferta<textarea id="bizPromo" rows="3" maxlength="200" placeholder="10% en vacuno los sábados"></textarea></label>
+      <label>WhatsApp<input id="bizWa" type="tel" placeholder="5493756…" maxlength="20" /></label>
+      <label>Ciudad<input id="bizCity" placeholder="Paso de los Libres" maxlength="60" /></label>
+      <button class="btn" id="bizSubmit" type="button">Enviar oferta</button>
+      <p class="okmsg hidden" id="bizOk"></p>
+      <p class="err hidden" id="bizErr"></p>
+      <p class="muted"><a href="./">← Volver al inicio</a></p>
+    </div>
+  </section>
+
+  <!-- EVENT VIEW -->
   <section id="eventView" class="hidden">
     <div class="card">
       <div class="badge" id="kindBadge">asado</div>
       <h1 id="eventTitle">Evento</h1>
       <p class="muted" id="eventMeta"></p>
+      <p class="share-hint">Compartí este link y entran directo. También pueden usar el código.</p>
+      <p class="share-link-wrap"><span class="share-link" id="shareLinkText"></span></p>
       <p>Código: <span class="code" id="eventCode"></span></p>
       <div class="actions">
         <button class="btn btn-navy btn-sm" id="copyLink" type="button">Copiar link</button>
         <a class="btn btn-ghost btn-sm" id="waShare" href="#" target="_blank" rel="noopener">WhatsApp</a>
         <button class="btn btn-ghost btn-sm" id="newEvent" type="button">Otro evento</button>
       </div>
-      <p class="okmsg hidden" id="shareOk">Link copiado</p>
+    </div>
+
+    <div class="card" id="rsvpCard">
+      <h2>¿Vas?</h2>
+      <div class="rsvp-row" id="rsvpButtons">
+        <button type="button" class="btn btn-sm rsvp-btn" data-rsvp="voy">Voy</button>
+        <button type="button" class="btn btn-sm btn-ghost rsvp-btn" data-rsvp="talvez">Tal vez</button>
+        <button type="button" class="btn btn-sm btn-ghost rsvp-btn" data-rsvp="no">No voy</button>
+      </div>
+      <p class="muted" id="rsvpSummary"></p>
     </div>
 
     <div class="card" id="sponsorsCard">
@@ -155,7 +137,7 @@ footer { margin-top:24px; color:var(--muted); font-size:12px; text-align:center;
         <div id="sponsorsList"></div>
         <button type="button" class="btn btn-ghost btn-sm sponsors-more hidden" id="sponsorsMore">Ver más</button>
         <p class="muted sponsors-biz">
-          <a id="sponsorsBizLink" href="#">¿Tenés un negocio? Publicá tu oferta</a>
+          <a id="sponsorsBizLink" href="?biz=1">¿Tenés un negocio? Publicá tu oferta</a>
         </p>
       </div>
     </div>
@@ -163,19 +145,48 @@ footer { margin-top:24px; color:var(--muted); font-size:12px; text-align:center;
     <div class="card">
       <h2>¿Qué llevamos?</h2>
       <div id="itemList"></div>
-      <div class="actions" style="margin-top:8px">
-        <input id="newItem" placeholder="Agregar algo…" maxlength="60" style="flex:1;min-width:140px" />
-        <button class="btn btn-sm" id="addItem" type="button" style="width:auto">Agregar</button>
+      <div class="add-item-block">
+        <div class="row">
+          <label class="grow">Agregar
+            <input id="newItem" placeholder="Ej: Chimichurri" maxlength="60" />
+          </label>
+          <label>Categoría
+            <select id="newItemCat">
+              <option value="carne">Carne</option>
+              <option value="bebida">Bebida</option>
+              <option value="ensalada">Ensalada</option>
+              <option value="postre">Postre</option>
+              <option value="carbon">Carbón</option>
+              <option value="otro" selected>Otro</option>
+            </select>
+          </label>
+        </div>
+        <button class="btn btn-sm" id="addItem" type="button">Agregar</button>
       </div>
     </div>
+
     <div class="card">
       <h2>Tu nombre</h2>
-      <label style="margin:0"><input id="guestName" placeholder="Para anotar qué llevás" maxlength="40" /></label>
-      <p class="muted">Se guarda en este celular.</p>
+      <label style="margin:0"><input id="guestName" placeholder="Para anotar qué llevás y RSVP" maxlength="40" autocomplete="name" /></label>
+      <p class="muted">Se guarda solo en este celular (localStorage). No pedimos cuenta ni email. Solo quien tenga el link ve el evento.</p>
     </div>
   </section>
-  <footer>QuéLlevo · MVP gratis</footer>
+
+  <footer class="site-footer">
+    <p>QuéLlevo · MVP gratis</p>
+    <p class="footer-links">
+      <a href="#terminos" id="termsLink">Términos</a>
+      ·
+      <a href="privacy.html">Privacidad</a>
+      ·
+      <a href="mailto:victor11espindola@gmail.com">Contacto</a>
+    </p>
+    <p class="muted tiny" id="termsStub">Sin cuenta. Solo un nombre. El link es la llave del evento.</p>
+  </footer>
 </div>
+
+<div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
