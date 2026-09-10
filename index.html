@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#E1306C" />
+<meta name="theme-color" content="#25D366" />
 <meta name="description" content="QuéLlevo — organizá asados, fiestas y cenas: cada uno marca qué lleva." />
 <title>QuéLlevo</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <style>
 :root {
-  --navy:#1C1E21; --teal:#E1306C; --sand:#FFFBEA; --ink:#1C1E21;
-  --muted:#65676B; --line:#E8E0D0; --ok:#25D366; --warn:#ED4956;
-  --yellow:#FFE600; --primary:#E1306C; --primary-dark:#C13584;
+  --navy:#1C1E21; --teal:#128C7E; --sand:#FFFBEA; --ink:#1C1E21;
+  --muted:#65676B; --line:#E8E0D0; --ok:#25D366; --warn:#FF0000;
+  --yellow:#FFE600; --primary:#1DA851; --primary-dark:#128C7E;
+  --brand-green:#25D366; --alert-soft:#FFE0E0;
 }
 * { box-sizing:border-box; }
 body {
@@ -42,7 +43,7 @@ input { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid #D
   text-decoration:none;
 }
 .btn:disabled { opacity:.55; }
-.btn-ghost { background:#FFF0F5; color:var(--ink); }
+.btn-ghost { background:#E7F9EF; color:var(--ink); }
 .btn-navy { background:var(--ink); }
 .btn-sm { width:auto; padding:8px 12px; font-size:13px; }
 .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
@@ -64,9 +65,9 @@ input { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid #D
   letter-spacing:.04em; padding:4px 8px; border-radius:999px;
   background:var(--yellow); color:var(--ink);
 }
-.badge.free { background:#FFE0E6; color:#FF0000; }
+.badge.free { background:#FFE0E0; color:#FF0000; }
 .badge.promo { background:#E7F9EF; color:#128C7E; }
-.badge.auspicia { background:#FCE7F0; color:var(--primary); }
+.badge.auspicia { background:#FFF6C8; color:var(--ink); }
 .muted { color:var(--muted); font-size:13px; }
 .err { color:#FF0000; font-size:13px; margin-top:8px; }
 .okmsg { color:var(--ok); font-size:13px; margin-top:8px; }

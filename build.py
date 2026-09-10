@@ -57,7 +57,7 @@ def main():
   "start_url": ".",
   "display": "standalone",
   "background_color": "#FFFBEA",
-  "theme_color": "#E1306C",
+  "theme_color": "#25D366",
   "lang": "es"
 }
 """, encoding="utf-8")

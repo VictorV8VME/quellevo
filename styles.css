@@ -4,9 +4,10 @@
   --ink: #1C1E21;
   --ink-soft: #4B4F56;
   --muted: #65676B;
-  --accent: #E1306C;
-  --accent-dark: #C13584;
-  --accent-soft: #FCE7F0;
+  --accent: #25D366;
+  --accent-dark: #128C7E;
+  --accent-soft: #E7F9EF;
+  --cta: #1DA851;
   --green: #25D366;
   --green-soft: #E7F9EF;
   --line: #E8E0D0;
@@ -15,7 +16,8 @@
   --touch: 48px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --yellow: #FFE600;
-  --alert: #ED4956;
+  --alert: #FF0000;
+  --alert-soft: #FFE0E0;
   font-family: "Nunito", system-ui, -apple-system, sans-serif;
 }
 
@@ -32,7 +34,7 @@ body {
   min-height: 100%;
   background:
     radial-gradient(ellipse at top, #FFF3B8 0%, transparent 55%),
-    linear-gradient(180deg, #FFFBEA 0%, #FFF8E1 100%);
+    linear-gradient(180deg, #FFFBEA 0%, #FFFFFF 100%);
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
@@ -188,7 +190,7 @@ button {
 .input:focus,
 .select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(225, 48, 108, 0.22);
+  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.22);
 }
 
 .kind-grid {
@@ -277,9 +279,9 @@ button {
 
 .btn-primary {
   width: 100%;
-  background: var(--accent);
+  background: var(--cta);
   color: #fff;
-  box-shadow: 0 6px 16px rgba(225, 48, 108, 0.32);
+  box-shadow: 0 6px 16px rgba(29, 168, 81, 0.32);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -293,9 +295,9 @@ button {
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--accent-dark);
-  border: 1.5px dashed var(--accent-soft);
+  background: #FFF6C8;
+  color: var(--ink);
+  border: 1.5px dashed #E6CF00;
 }
 
 .btn-sm {
@@ -513,8 +515,8 @@ button {
 }
 
 .error-box {
-  background: #FFE0E6;
-  border: 1px solid #FFB3C1;
+  background: #FFE0E0;
+  border: 1px solid #FFB3B3;
   color: #FF0000;
   border-radius: 14px;
   padding: 14px;
@@ -593,8 +595,8 @@ button {
   color: var(--green);
 }
 .badge.auspicia {
-  background: #FCE7F0;
-  color: #E1306C;
+  background: #FFF6C8;
+  color: #1C1E21;
 }
 .sponsors-biz {
   text-align: center;
