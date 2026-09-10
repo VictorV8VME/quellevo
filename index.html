@@ -4,8 +4,30 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#25D366" />
-<meta name="description" content="QuéLlevo — organizá asados sin caos: cada uno anota qué lleva y los negocios ofrecen ofertas." />
-<title>QuéLlevo</title>
+<meta name="description" content="QuéLlevo — organizá asados y juntadas sin caos: cada uno anota qué lleva. Sin registrarte." />
+<meta name="application-name" content="QuéLlevo" />
+
+<!-- Open Graph / WhatsApp -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="QuéLlevo" />
+<meta property="og:locale" content="es_AR" />
+<meta property="og:title" content="QuéLlevo — asados y juntadas sin caos" />
+<meta property="og:description" content="Cada uno anota qué lleva. El link es la llave. Ideal para asados y juntadas." />
+<meta property="og:url" content="https://quellevo.vercel.app/" />
+<meta property="og:image" content="https://quellevo.vercel.app/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="QuéLlevo — asados y juntadas sin caos" />
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="QuéLlevo — asados y juntadas sin caos" />
+<meta name="twitter:description" content="Cada uno anota qué lleva. Ideal para asados y juntadas." />
+<meta name="twitter:image" content="https://quellevo.vercel.app/og.png" />
+
+<title>QuéLlevo — asados y juntadas sin caos</title>
+<link rel="icon" href="favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -21,37 +43,35 @@
     </nav>
   </header>
 
-  <!-- LANDING (sin ?e= / ?c=) -->
+  <!-- LANDING -->
   <section id="landingView">
-    <div class="hero card" id="inicio">
-      <h1>Organizá asados sin caos</h1>
-      <p class="tagline">Cada uno anota qué lleva y los negocios ofrecen ofertas. Sin cuenta. Solo un nombre.</p>
+    <div class="hero card card-hero" id="inicio">
+      <h1>Asados y juntadas sin caos</h1>
+      <p class="tagline">Cada uno anota qué lleva. Ideal para asados, juntadas y encuentros con amigos.</p>
       <a class="btn" href="#crear">Crear evento</a>
-      <p class="trust-note">Sin cuenta… Solo un nombre. Solo quien tenga el link ve el evento.</p>
+      <p class="trust-note"><strong>Sin cuenta. Solo un nombre.</strong> Solo quien tenga el link ve el evento.</p>
+      <p class="trust-note privacy-sync">Tu nombre queda en este celular (localStorage). Si cambiás de celular, usá el mismo link; con internet se sincroniza.</p>
     </div>
 
     <div class="card" id="como">
       <h2>¿Cómo funciona?</h2>
       <ol class="steps">
-        <li><strong>Creá</strong> el evento con fecha y lugar.</li>
+        <li><strong>Creá</strong> el asado o juntada con fecha y lugar.</li>
         <li><strong>Compartí</strong> el link por WhatsApp.</li>
         <li><strong>Cada uno</strong> marca qué lleva y si va.</li>
       </ol>
     </div>
 
-    <div class="card demo-card">
-      <div class="badge">Demo</div>
+    <div class="card demo-card card-accent" id="demoCard">
+      <div class="badge">Demo interactiva</div>
       <h2>Asado del domingo</h2>
       <p class="muted">Domingo 12:00 · Casa de Ana · Organiza Ana</p>
-      <div class="demo-people">
-        <div class="demo-row"><span>🥩 Vacío</span><span class="who">Lleva: Ana</span></div>
-        <div class="demo-row"><span>🥤 Bebidas</span><span class="who">Lleva: Nico</span></div>
-        <div class="demo-row"><span>🥗 Ensalada</span><span class="who">Lleva: Sofi</span></div>
-      </div>
+      <p class="demo-hint">Probá: tocá <em>Yo llevo</em> / <em>Soltar</em> (solo en este celular).</p>
+      <div class="demo-people" id="demoList"></div>
       <p class="muted demo-rsvp">3 personas · 2 van · 1 tal vez</p>
     </div>
 
-    <section class="card" id="crear">
+    <section class="card card-primary" id="crear">
       <h2>Crear evento</h2>
       <div class="chips" id="kindChips">
         <button type="button" class="chip on" data-kind="asado">Asado</button>
@@ -72,14 +92,14 @@
 
     <section class="card" id="negocios">
       <h2>Para negocios</h2>
-      <p class="muted">Publicá una oferta para asados en tu ciudad. La revisamos antes de mostrarla.</p>
+      <p class="muted">Publicá una oferta para asados y juntadas en tu ciudad. La revisamos antes de mostrarla.</p>
       <a class="btn btn-ghost" href="?biz=1" id="bizCta">Quiero publicar una oferta</a>
     </section>
   </section>
 
-  <!-- BIZ PANEL (?biz=1) -->
+  <!-- BIZ PANEL -->
   <section id="bizView" class="hidden">
-    <div class="card">
+    <div class="card card-primary">
       <h1>Publicá tu oferta</h1>
       <p class="muted">Queda pendiente de aprobación. Sin spam: solo ofertas útiles para asados.</p>
       <label>Nombre del local<input id="bizName" placeholder="Carnicería El Corte" maxlength="80" /></label>
@@ -101,19 +121,65 @@
     </div>
   </section>
 
+  <!-- MISSING / INVALID EVENT -->
+  <section id="missingView" class="hidden">
+    <div class="card card-error">
+      <div class="badge badge-alert">No encontrado</div>
+      <h1>No encontramos ese evento</h1>
+      <p class="muted" id="missingMsg">El código o el link no existe, o solo está en otro celular (modo local).</p>
+      <p class="code-big muted" id="missingCode"></p>
+      <div class="actions">
+        <a class="btn" href="./#crear">Crear evento nuevo</a>
+        <button class="btn btn-ghost" id="missingHome" type="button">Ir al inicio</button>
+      </div>
+    </div>
+  </section>
+
   <!-- EVENT VIEW -->
   <section id="eventView" class="hidden">
-    <div class="card">
+    <div class="card card-closed-banner hidden" id="closedBanner">
+      <strong>Evento finalizado</strong>
+      <p class="muted" style="margin:6px 0 0">Ya no se puede agregar ni reclamar ítems. Podés crear uno nuevo.</p>
+      <a class="btn btn-sm" href="./#crear" id="closedCta" style="margin-top:10px;width:auto">Crear evento nuevo</a>
+    </div>
+
+    <div class="card card-primary" id="eventHeaderCard">
       <div class="badge" id="kindBadge">asado</div>
       <h1 id="eventTitle">Evento</h1>
       <p class="muted" id="eventMeta"></p>
-      <p class="share-hint">Compartí este link y entran directo. También pueden usar el código.</p>
-      <p class="share-link-wrap"><span class="share-link" id="shareLinkText"></span></p>
-      <p>Código: <span class="code" id="eventCode"></span></p>
-      <div class="actions">
-        <button class="btn btn-navy btn-sm" id="copyLink" type="button">Copiar link</button>
-        <a class="btn btn-ghost btn-sm" id="waShare" href="#" target="_blank" rel="noopener">WhatsApp</a>
-        <button class="btn btn-ghost btn-sm" id="newEvent" type="button">Otro evento</button>
+
+      <div class="share-box" id="shareBox">
+        <p class="share-label">Compartí este link — entran directo</p>
+        <div class="share-row">
+          <span class="share-link" id="shareLinkText"></span>
+          <button class="btn btn-navy btn-sm" id="copyLink" type="button">Copiar link</button>
+        </div>
+        <div class="code-row">
+          <span class="share-label">Código</span>
+          <span class="code code-big" id="eventCode"></span>
+          <button class="btn btn-ghost btn-sm" id="copyCode" type="button">Copiar código</button>
+        </div>
+        <div class="actions">
+          <a class="btn btn-ghost btn-sm" id="waShare" href="#" target="_blank" rel="noopener">WhatsApp</a>
+          <button class="btn btn-ghost btn-sm" id="newEvent" type="button">Otro evento</button>
+        </div>
+      </div>
+
+      <div class="host-tools" id="hostTools">
+        <button class="btn btn-ghost btn-sm" id="editEventBtn" type="button">Editar evento</button>
+        <button class="btn btn-ghost btn-sm btn-danger" id="closeEventBtn" type="button">Finalizar evento</button>
+      </div>
+
+      <div class="edit-panel hidden" id="editPanel">
+        <h2>Editar evento</h2>
+        <label>Título<input id="editTitle" maxlength="80" /></label>
+        <label>Lugar<input id="editPlace" maxlength="80" /></label>
+        <label>Fecha y hora<input id="editWhen" type="datetime-local" /></label>
+        <div class="actions">
+          <button class="btn btn-sm" id="saveEditBtn" type="button">Guardar</button>
+          <button class="btn btn-ghost btn-sm" id="cancelEditBtn" type="button">Cancelar</button>
+        </div>
+        <p class="err hidden" id="editErr"></p>
       </div>
     </div>
 
@@ -129,7 +195,7 @@
 
     <div class="card" id="sponsorsCard">
       <div class="sponsors-head">
-        <h2>Ofertas para el asado <span class="badge auspicia">Auspicia</span></h2>
+        <h2>Ofertas para el asado <span class="badge ofertas">Ofertas destacadas</span></h2>
         <button type="button" class="sponsors-toggle" id="sponsorsToggle" aria-expanded="true" title="Mostrar u ocultar">▾</button>
       </div>
       <div class="sponsors-body" id="sponsorsBody">
@@ -142,10 +208,10 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="itemsCard">
       <h2>¿Qué llevamos?</h2>
       <div id="itemList"></div>
-      <div class="add-item-block">
+      <div class="add-item-block" id="addItemBlock">
         <div class="row">
           <label class="grow">Agregar
             <input id="newItem" placeholder="Ej: Chimichurri" maxlength="60" />
@@ -165,10 +231,11 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="nameCard">
       <h2>Tu nombre</h2>
       <label style="margin:0"><input id="guestName" placeholder="Para anotar qué llevás y RSVP" maxlength="40" autocomplete="name" /></label>
-      <p class="muted">Se guarda solo en este celular (localStorage). No pedimos cuenta ni email. Solo quien tenga el link ve el evento.</p>
+      <p class="name-prompt err hidden" id="namePrompt">Escribí tu nombre acá arriba para anotar qué llevás o confirmar si vas.</p>
+      <p class="muted">Se guarda solo en este celular (localStorage). No pedimos email. Solo quien tenga el link ve el evento. Si cambiás de celular, usá el mismo link; con internet se sincroniza.</p>
     </div>
   </section>
 
@@ -181,7 +248,7 @@
       ·
       <a href="mailto:victor11espindola@gmail.com">Contacto</a>
     </p>
-    <p class="muted tiny" id="termsStub">Sin cuenta. Solo un nombre. El link es la llave del evento.</p>
+    <p class="muted tiny">Solo quien tenga el link ve el evento.</p>
   </footer>
 </div>
 

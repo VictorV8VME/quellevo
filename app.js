@@ -95,6 +95,12 @@ const DEMO_SPONSORS = [
   },
 ];
 
+const DEMO_ITEMS_DEFAULT = [
+  { id: "d1", label: "🥩 Vacío", claimed_by: "Ana" },
+  { id: "d2", label: "🥤 Bebidas", claimed_by: "Nico" },
+  { id: "d3", label: "🥗 Ensalada", claimed_by: null },
+];
+
 const SPONSORS_VISIBLE = 2;
 let kind = "asado", sb = null, online = false, eventRow = null, items = [];
 let sponsors = DEMO_SPONSORS.slice();
@@ -105,7 +111,10 @@ let rsvps = {};
 let rsvpTableOk = false;
 let guestsColOk = false;
 let categoryColOk = true;
+let closedColOk = true;
 let toastTimer = null;
+let demoItems = DEMO_ITEMS_DEFAULT.map((x) => Object.assign({}, x));
+let namePromptTimer = null;
 
 function el(id) { return document.getElementById(id); }
 function codeGen() {
@@ -117,7 +126,7 @@ function codeGen() {
 function escapeHtml(s) {
   return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
 }
-function myName() { return (el("guestName").value || localStorage.getItem("ql_name") || "").trim(); }
+function myName() { return (el("guestName") && el("guestName").value || localStorage.getItem("ql_name") || "").trim(); }
 function setMyName(n) {
   n = String(n || "").trim();
   if (el("guestName")) el("guestName").value = n;
@@ -127,17 +136,33 @@ function eventCodeFromUrl() {
   const q = new URLSearchParams(location.search);
   return (q.get("e") || q.get("c") || "").trim().toUpperCase();
 }
-function isBizMode() {
-  const q = new URLSearchParams(location.search);
-  if (q.get("biz") === "1") return true;
-  return (location.hash || "").toLowerCase() === "#negocios" && !eventCodeFromUrl() && q.get("biz") === "1";
-}
 function eventUrl(code) {
   const u = new URL(location.href);
   u.search = "";
   u.searchParams.set("e", code);
   u.hash = "";
   return u.toString();
+}
+function absoluteAsset(path) {
+  try {
+    return new URL(path, location.href).toString();
+  } catch (_) {
+    return path;
+  }
+}
+function fixShareMetaAbsolute() {
+  // Absolute og:image helps WhatsApp previews
+  document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]').forEach((m) => {
+    const v = m.getAttribute("content") || "";
+    if (v && !/^https?:/i.test(v)) m.setAttribute("content", absoluteAsset(v));
+  });
+  let ogUrl = document.querySelector('meta[property="og:url"]');
+  if (!ogUrl) {
+    ogUrl = document.createElement("meta");
+    ogUrl.setAttribute("property", "og:url");
+    document.head.appendChild(ogUrl);
+  }
+  ogUrl.setAttribute("content", location.origin + location.pathname);
 }
 function showErr(msg) {
   const e = el("homeErr");
@@ -153,16 +178,56 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
 }
+function promptName(reason) {
+  const p = el("namePrompt");
+  const card = el("nameCard");
+  if (p) {
+    p.textContent = reason || "Escribí tu nombre acá arriba para anotar qué llevás o confirmar si vas.";
+    p.classList.remove("hidden");
+    clearTimeout(namePromptTimer);
+    namePromptTimer = setTimeout(() => p.classList.add("hidden"), 6000);
+  }
+  if (card) {
+    card.classList.add("name-card-pulse");
+    setTimeout(() => card.classList.remove("name-card-pulse"), 1200);
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  if (el("guestName")) el("guestName").focus();
+}
 function normCat(c) {
   const x = String(c || "otro").toLowerCase();
   return CATEGORIES.includes(x) ? x : "otro";
 }
-function bizPublishHref() {
-  const subject = encodeURIComponent("QuéLlevo — quiero publicar una oferta");
-  const body = encodeURIComponent("Hola Victor,\n\nTengo un comercio y me gustaría auspicar en QuéLlevo.\n\nNombre del local:\nTipo (carnicería / súper):\nPromo:\nWhatsApp:\nCiudad:\n");
-  if (BIZ.email) return "mailto:" + BIZ.email + "?subject=" + subject + "&body=" + body;
-  const wa = String(BIZ.whatsapp || "").replace(/\D/g, "");
-  return "https://wa.me/" + wa + "?text=" + encodeURIComponent("Hola, quiero publicar una oferta en QuéLlevo");
+function isClosed(ev) {
+  if (!ev) return false;
+  if (ev.closed === true || ev.closed === "true" || ev.closed === 1) return true;
+  if (String(ev.status || "").toLowerCase() === "closed") return true;
+  return false;
+}
+function isHost() {
+  if (!eventRow) return false;
+  const n = myName().toLowerCase();
+  const h = String(eventRow.host_name || "").trim().toLowerCase();
+  if (h && n && h === n) return true;
+  // After create, host name was set — also allow if we just created and name matches
+  try {
+    const flag = sessionStorage.getItem("ql_host_" + eventRow.code);
+    if (flag === "1") return true;
+  } catch (_) {}
+  return false;
+}
+function markHost(code) {
+  try { sessionStorage.setItem("ql_host_" + code, "1"); } catch (_) {}
+}
+function toDatetimeLocalValue(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  } catch (_) { return ""; }
 }
 function sponsorCta(s) {
   const parts = [];
@@ -186,6 +251,57 @@ function activeSponsors(list) {
     }
     return true;
   }).slice().sort((a, b) => (a.sort || 0) - (b.sort || 0));
+}
+
+/* ---- Interactive landing demo ---- */
+function renderDemo() {
+  const root = el("demoList");
+  if (!root) return;
+  root.innerHTML = demoItems.map((it) => {
+    const claimed = !!(it.claimed_by && String(it.claimed_by).trim());
+    const mine = claimed && it.claimed_by === "Vos";
+    let btn = "";
+    if (!claimed) {
+      btn = '<button class="btn btn-sm" type="button" data-demo-claim="' + escapeHtml(it.id) + '">Yo llevo</button>';
+    } else if (mine) {
+      btn = '<button class="btn btn-ghost btn-sm" type="button" data-demo-unclaim="' + escapeHtml(it.id) + '">Soltar</button>';
+    } else {
+      btn = '<span class="badge">ocupado</span>';
+    }
+    return (
+      '<div class="demo-row">' +
+        '<span>' + escapeHtml(it.label) + '</span>' +
+        '<span class="demo-right">' +
+          (claimed
+            ? '<span class="who">Lleva: ' + escapeHtml(it.claimed_by) + '</span>'
+            : '<span class="badge free">libre</span>') +
+          " " + btn +
+        "</span>" +
+      "</div>"
+    );
+  }).join("");
+  root.querySelectorAll("[data-demo-claim]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const id = b.getAttribute("data-demo-claim");
+      const it = demoItems.find((x) => x.id === id);
+      if (it && !it.claimed_by) {
+        it.claimed_by = "Vos";
+        renderDemo();
+        toast("Demo: anotaste “" + it.label + "” (solo acá)");
+      }
+    });
+  });
+  root.querySelectorAll("[data-demo-unclaim]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const id = b.getAttribute("data-demo-unclaim");
+      const it = demoItems.find((x) => x.id === id);
+      if (it) {
+        it.claimed_by = null;
+        renderDemo();
+        toast("Demo: soltaste el ítem");
+      }
+    });
+  });
 }
 
 async function loadSponsors() {
@@ -264,13 +380,12 @@ async function initSb() {
     if (error) {
       online = false;
       if (el("homeHint")) {
-        el("homeHint").textContent = "Modo local (este celular). Para compartir entre varios, corré el SQL en Supabase una vez.";
+        el("homeHint").textContent = "Modo local (este celular). Para sincronizar entre celulares, corré el SQL en Supabase una vez.";
       }
       return false;
     }
     online = true;
     if (el("homeHint")) el("homeHint").textContent = "Gratis · sin cuenta · link para el grupo (sync online)";
-    // Probe optional schema
     try {
       const { error: eCat } = await sb.from("quellevo_items").select("category").limit(1);
       categoryColOk = !eCat;
@@ -283,6 +398,10 @@ async function initSb() {
       const { error: eG } = await sb.from("quellevo_events").select("guests").limit(1);
       guestsColOk = !eG;
     } catch (_) { guestsColOk = false; }
+    try {
+      const { error: eC } = await sb.from("quellevo_events").select("closed").limit(1);
+      closedColOk = !eC;
+    } catch (_) { closedColOk = false; }
     return true;
   } catch (e) {
     online = false;
@@ -322,9 +441,11 @@ async function createEvent() {
   el("createBtn").disabled = true;
   try {
     if (online) {
-      const { data: ev, error } = await sb.from("quellevo_events").insert({
+      const payload = {
         code, title, kind, place: place || null, event_at: when, host_name: host,
-      }).select("*").single();
+      };
+      if (closedColOk) payload.closed = false;
+      const { data: ev, error } = await sb.from("quellevo_events").insert(payload).select("*").single();
       if (error) throw error;
       const rows = templates.map((t) => {
         const row = { event_id: ev.id, label: t.label };
@@ -334,12 +455,16 @@ async function createEvent() {
       const { data: its, error: e2 } = await sb.from("quellevo_items").insert(rows).select("*");
       if (e2) throw e2;
       eventRow = ev;
+      if (eventRow.closed == null) eventRow.closed = false;
       items = (its || []).map((it) => Object.assign({ category: "otro" }, it));
       rsvps = {};
-      // Organizer defaults to Voy
+      markHost(code);
       await setRsvp("voy", host, true);
     } else {
-      eventRow = { id: "local-" + code, code, title, kind, place, event_at: when, host_name: host };
+      eventRow = {
+        id: "local-" + code, code, title, kind, place, event_at: when,
+        host_name: host, closed: false,
+      };
       items = templates.map((t, i) => ({
         id: "li-" + i + "-" + code,
         event_id: eventRow.id,
@@ -350,17 +475,29 @@ async function createEvent() {
       rsvps = {};
       rsvps[host.toLowerCase()] = "voy";
       saveLocalRsvps(code, rsvps);
+      markHost(code);
       localSave();
     }
     history.replaceState(null, "", "?e=" + code);
     showViews("event");
     renderEvent(true);
-    toast("¡Evento creado! Compartí este link.");
+    toast("¡Evento creado! Copiá el link o el código.");
+    const box = el("shareBox");
+    if (box) box.scrollIntoView({ behavior: "smooth", block: "center" });
   } catch (e) {
     console.error(e);
     showErr("No se pudo crear. Si querés sync online, corré supabase-quellevo.sql en Supabase.");
   } finally {
     el("createBtn").disabled = false;
+  }
+}
+
+function showMissing(code, msg) {
+  showViews("missing");
+  if (el("missingCode")) el("missingCode").textContent = code ? ("Código: " + code) : "";
+  if (el("missingMsg")) {
+    el("missingMsg").textContent = msg ||
+      "El código o el link no existe, o solo está guardado en otro celular (modo local).";
   }
 }
 
@@ -371,20 +508,24 @@ async function loadEvent(code) {
     if (online) {
       const { data: ev, error } = await sb.from("quellevo_events").select("*").eq("code", code).maybeSingle();
       if (error) throw error;
-      if (!ev) { showErr("No encontré ese evento."); showViews("landing"); return; }
+      if (!ev) {
+        showMissing(code, "No hay ningún evento con ese código. Revisá el link o pedile el código al anfitrión.");
+        return;
+      }
       const { data: its, error: e2 } = await sb.from("quellevo_items").select("*").eq("event_id", ev.id).order("created_at");
       if (e2) throw e2;
       eventRow = ev;
+      if (eventRow.closed == null) eventRow.closed = false;
       items = (its || []).map((it) => Object.assign({ category: normCat(it.category) }, it));
       await loadRsvps();
     } else {
       const pack = localLoad(code);
       if (!pack) {
-        showErr("En modo local solo ves eventos creados en este celular.");
-        showViews("landing");
+        showMissing(code, "En modo local solo ves eventos creados en este celular. Con internet, el mismo link se sincroniza entre celulares.");
         return;
       }
       eventRow = pack.event;
+      if (eventRow.closed == null) eventRow.closed = false;
       items = (pack.items || []).map((it) => Object.assign({ category: normCat(it.category) }, it));
       rsvps = pack.rsvps || loadLocalRsvps(code);
     }
@@ -392,7 +533,7 @@ async function loadEvent(code) {
     renderEvent(false);
   } catch (e) {
     console.error(e);
-    showErr("Error al cargar el evento.");
+    showMissing(code, "Hubo un error al cargar el evento. Probá de nuevo o creá uno nuevo.");
   }
 }
 
@@ -418,12 +559,13 @@ async function loadRsvps() {
 }
 
 async function setRsvp(status, nameOverride, silent) {
+  if (isClosed(eventRow) && !silent) {
+    toast("Este evento ya está finalizado.");
+    return;
+  }
   const name = (nameOverride || myName()).trim();
   if (!name) {
-    if (!silent) {
-      alert("Escribí tu nombre abajo para confirmar asistencia.");
-      el("guestName").focus();
-    }
+    if (!silent) promptName("Escribí tu nombre para confirmar si vas.");
     return;
   }
   if (!eventRow) return;
@@ -457,9 +599,11 @@ async function setRsvp(status, nameOverride, silent) {
 function renderRsvp() {
   const summary = el("rsvpSummary");
   const mine = myName().toLowerCase();
+  const closed = isClosed(eventRow);
   document.querySelectorAll(".rsvp-btn").forEach((b) => {
     const st = b.getAttribute("data-rsvp");
     b.classList.toggle("rsvp-on", !!(mine && rsvps[mine] === st));
+    b.disabled = closed;
   });
   const counts = { voy: 0, talvez: 0, no: 0 };
   Object.values(rsvps).forEach((s) => { if (counts[s] != null) counts[s]++; });
@@ -486,14 +630,32 @@ function renderEvent(justCreated) {
   el("waShare").href = "https://wa.me/?text=" + encodeURIComponent(
     "QuéLlevo — " + eventRow.title + "\nAnotá qué llevás acá:\n" + link + "\n(También con el código " + eventRow.code + ")"
   );
+
+  const closed = isClosed(eventRow);
+  const banner = el("closedBanner");
+  if (banner) banner.classList.toggle("hidden", !closed);
+  const addBlock = el("addItemBlock");
+  if (addBlock) addBlock.classList.toggle("hidden", closed);
+  const hostTools = el("hostTools");
+  if (hostTools) hostTools.classList.toggle("hidden", closed || !isHost());
+  const editPanel = el("editPanel");
+  if (editPanel && closed) editPanel.classList.add("hidden");
+  const closeBtn = el("closeEventBtn");
+  if (closeBtn) closeBtn.classList.toggle("hidden", closed);
+
+  if (justCreated && el("shareBox")) {
+    el("shareBox").classList.add("share-box-highlight");
+  }
+
   renderItems();
   renderRsvp();
   loadSponsors();
-  if (justCreated) { /* toast already shown */ }
 }
 
 function renderItems() {
   const root = el("itemList");
+  if (!root) return;
+  const closed = isClosed(eventRow);
   if (!items.length) {
     root.innerHTML = "<p class='muted'>Todavía no hay nada en la lista.</p>";
     return;
@@ -513,12 +675,20 @@ function renderItems() {
       const claimed = !!(it.claimed_by && String(it.claimed_by).trim());
       const mine = claimed && myName() && it.claimed_by.trim().toLowerCase() === myName().toLowerCase();
       let btn = "";
-      if (!claimed) btn = '<button class="btn btn-sm" data-claim="' + escapeHtml(it.id) + '" type="button">Yo llevo</button>';
-      else if (mine) btn = '<button class="btn btn-ghost btn-sm" data-unclaim="' + escapeHtml(it.id) + '" type="button">Soltar</button>';
-      else btn = '<span class="badge">ocupado</span>';
+      if (closed) {
+        btn = claimed
+          ? '<span class="badge">ocupado</span>'
+          : '<span class="badge free">libre</span>';
+      } else if (!claimed) {
+        btn = '<button class="btn btn-sm" data-claim="' + escapeHtml(it.id) + '" type="button">Yo llevo</button>';
+      } else if (mine) {
+        btn = '<button class="btn btn-ghost btn-sm" data-unclaim="' + escapeHtml(it.id) + '" type="button">Soltar</button>';
+      } else {
+        btn = '<span class="badge">ocupado</span>';
+      }
       return (
         '<div class="item"><div><div class="name">' + escapeHtml(it.label) + '</div><div class="who">' +
-        (claimed ? ("Lleva: " + escapeHtml(it.claimed_by)) : "<span class='badge free'>libre</span>") +
+        (claimed ? ("Lleva: " + escapeHtml(it.claimed_by)) : (closed ? "" : "<span class='badge free'>libre</span>")) +
         "</div></div>" + btn + "</div>"
       );
     }).join("");
@@ -530,8 +700,9 @@ function renderItems() {
 }
 
 async function claim(id) {
+  if (isClosed(eventRow)) { toast("Este evento ya está finalizado."); return; }
   const name = myName();
-  if (!name) { alert("Escribí tu nombre abajo para anotar."); el("guestName").focus(); return; }
+  if (!name) { promptName("Escribí tu nombre para anotar qué llevás."); return; }
   const it = items.find((x) => String(x.id) === String(id));
   if (!it || it.claimed_by) return;
   try {
@@ -546,12 +717,13 @@ async function claim(id) {
     }
   } catch (e) {
     console.error(e);
-    alert("No se pudo anotar.");
+    toast("No se pudo anotar.");
     await refreshItems();
   }
 }
 
 async function unclaim(id) {
+  if (isClosed(eventRow)) { toast("Este evento ya está finalizado."); return; }
   const it = items.find((x) => String(x.id) === String(id));
   if (!it) return;
   try {
@@ -566,11 +738,12 @@ async function unclaim(id) {
     }
   } catch (e) {
     console.error(e);
-    alert("No se pudo soltar.");
+    toast("No se pudo soltar.");
   }
 }
 
 async function addItem() {
+  if (isClosed(eventRow)) { toast("Este evento ya está finalizado."); return; }
   const label = (el("newItem").value || "").trim();
   if (!label || !eventRow) return;
   const category = normCat(el("newItemCat") && el("newItemCat").value);
@@ -589,7 +762,7 @@ async function addItem() {
     }
   } catch (e) {
     console.error(e);
-    alert("No se pudo agregar.");
+    toast("No se pudo agregar.");
   }
 }
 
@@ -602,15 +775,80 @@ async function refreshItems() {
   }
 }
 
+async function saveEventEdit() {
+  if (!eventRow || !isHost()) return;
+  if (isClosed(eventRow)) { toast("Evento finalizado."); return; }
+  const title = (el("editTitle").value || "").trim();
+  const place = (el("editPlace").value || "").trim();
+  const whenVal = el("editWhen").value;
+  const when = whenVal ? new Date(whenVal).toISOString() : null;
+  const err = el("editErr");
+  if (err) { err.classList.add("hidden"); err.textContent = ""; }
+  if (!title) {
+    if (err) { err.textContent = "El título no puede quedar vacío."; err.classList.remove("hidden"); }
+    return;
+  }
+  el("saveEditBtn").disabled = true;
+  try {
+    eventRow.title = title;
+    eventRow.place = place || null;
+    eventRow.event_at = when;
+    if (online) {
+      const { error } = await sb.from("quellevo_events").update({
+        title,
+        place: place || null,
+        event_at: when,
+      }).eq("id", eventRow.id);
+      if (error) throw error;
+    }
+    localSave();
+    el("editPanel").classList.add("hidden");
+    renderEvent(false);
+    toast("Evento actualizado");
+  } catch (e) {
+    console.error(e);
+    if (err) { err.textContent = "No se pudo guardar."; err.classList.remove("hidden"); }
+  } finally {
+    el("saveEditBtn").disabled = false;
+  }
+}
+
+async function closeEvent() {
+  if (!eventRow || !isHost()) return;
+  if (isClosed(eventRow)) return;
+  const ok = confirm("¿Finalizar este evento? Nadie podrá agregar ni reclamar ítems.");
+  if (!ok) return;
+  try {
+    eventRow.closed = true;
+    if (online && closedColOk) {
+      const { error } = await sb.from("quellevo_events").update({ closed: true }).eq("id", eventRow.id);
+      if (error) throw error;
+    } else if (online && !closedColOk) {
+      // Column missing — still close locally; remind to run SQL
+      toast("Cerrado acá. Para sync, agregá columna closed (SQL).");
+    }
+    localSave();
+    renderEvent(false);
+    toast("Evento finalizado");
+  } catch (e) {
+    console.error(e);
+    toast("No se pudo finalizar online; quedó cerrado en este celular.");
+    localSave();
+    renderEvent(false);
+  }
+}
+
 function showViews(which) {
   const landing = el("landingView");
   const eventV = el("eventView");
   const biz = el("bizView");
+  const missing = el("missingView");
   const nav = el("miniNav");
   if (landing) landing.classList.toggle("hidden", which !== "landing");
   if (eventV) eventV.classList.toggle("hidden", which !== "event");
   if (biz) biz.classList.toggle("hidden", which !== "biz");
-  if (nav) nav.classList.toggle("hidden", which === "event" || which === "biz");
+  if (missing) missing.classList.toggle("hidden", which !== "missing");
+  if (nav) nav.classList.toggle("hidden", which === "event" || which === "biz" || which === "missing");
 }
 
 async function submitBiz() {
@@ -629,6 +867,7 @@ async function submitBiz() {
     return;
   }
   el("bizSubmit").disabled = true;
+  const pendingMsg = "Quedó pendiente de aprobación; te avisamos por WhatsApp/email cuando esté activa.";
   try {
     if (online && sb) {
       const row = {
@@ -643,7 +882,7 @@ async function submitBiz() {
       };
       const { error } = await sb.from("quellevo_sponsors").insert(row);
       if (error) throw error;
-      ok.textContent = "¡Enviado! Queda pendiente de aprobación.";
+      ok.textContent = pendingMsg;
       ok.classList.remove("hidden");
       toast("Oferta enviada · pendiente");
       el("bizName").value = "";
@@ -654,16 +893,24 @@ async function submitBiz() {
     }
   } catch (e) {
     console.error(e);
-    // Fallback mailto
     const subject = encodeURIComponent("QuéLlevo — oferta de " + name);
     const body = encodeURIComponent(
       "Nombre: " + name + "\nTipo: " + kindVal + "\nPromo: " + promo + "\nWhatsApp: " + wa + "\nCiudad: " + city + "\n"
     );
-    err.textContent = "No se pudo guardar online. Te abrimos un mail a Victor…";
+    err.textContent = "No se pudo guardar online. Te abrimos un mail… (queda pendiente de aprobación manual).";
     err.classList.remove("hidden");
     window.location.href = "mailto:" + BIZ.email + "?subject=" + subject + "&body=" + body;
   } finally {
     el("bizSubmit").disabled = false;
+  }
+}
+
+async function copyText(text, okMsg) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(okMsg || "Copiado");
+  } catch (_) {
+    prompt("Copiá:", text);
   }
 }
 
@@ -679,23 +926,37 @@ el("addItem").addEventListener("click", addItem);
 el("newItem").addEventListener("keydown", (e) => { if (e.key === "Enter") addItem(); });
 el("guestName").addEventListener("change", () => {
   setMyName(el("guestName").value);
+  const p = el("namePrompt");
+  if (p && myName()) p.classList.add("hidden");
   renderItems();
   renderRsvp();
-});
-el("copyLink").addEventListener("click", async () => {
-  const link = eventUrl(eventRow.code);
-  try {
-    await navigator.clipboard.writeText(link);
-    toast("Link copiado");
-  } catch (_) {
-    prompt("Copiá el link:", link);
+  // Re-eval host tools if name now matches
+  if (eventRow) {
+    const hostTools = el("hostTools");
+    if (hostTools) hostTools.classList.toggle("hidden", isClosed(eventRow) || !isHost());
   }
+});
+el("guestName").addEventListener("input", () => {
+  const p = el("namePrompt");
+  if (p && (el("guestName").value || "").trim()) p.classList.add("hidden");
+});
+el("copyLink").addEventListener("click", () => {
+  if (!eventRow) return;
+  copyText(eventUrl(eventRow.code), "Link copiado");
+});
+el("copyCode").addEventListener("click", () => {
+  if (!eventRow) return;
+  copyText(eventRow.code, "Código copiado");
 });
 el("newEvent").addEventListener("click", () => {
   history.replaceState(null, "", location.pathname || "./");
   eventRow = null;
   items = [];
   rsvps = {};
+  showViews("landing");
+});
+el("missingHome").addEventListener("click", () => {
+  history.replaceState(null, "", location.pathname || "./");
   showViews("landing");
 });
 el("sponsorsToggle").addEventListener("click", () => {
@@ -733,11 +994,39 @@ el("navCrear").addEventListener("click", () => {
     if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
   }, 50);
 });
+el("editEventBtn").addEventListener("click", () => {
+  if (!eventRow || !isHost()) return;
+  el("editTitle").value = eventRow.title || "";
+  el("editPlace").value = eventRow.place || "";
+  el("editWhen").value = toDatetimeLocalValue(eventRow.event_at);
+  el("editPanel").classList.remove("hidden");
+  el("editPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+el("cancelEditBtn").addEventListener("click", () => {
+  el("editPanel").classList.add("hidden");
+});
+el("saveEditBtn").addEventListener("click", saveEventEdit);
+el("closeEventBtn").addEventListener("click", closeEvent);
+if (el("closedCta")) {
+  el("closedCta").addEventListener("click", (e) => {
+    e.preventDefault();
+    history.replaceState(null, "", (location.pathname || "./") + "#crear");
+    eventRow = null;
+    items = [];
+    showViews("landing");
+    setTimeout(() => {
+      const t = el("crear");
+      if (t) t.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+  });
+}
 
 (async function boot() {
+  fixShareMetaAbsolute();
   const saved = localStorage.getItem("ql_name") || "";
   if (saved && el("guestName")) el("guestName").value = saved;
   if (saved && el("host")) el("host").value = saved;
+  renderDemo();
   await initSb();
   const q = new URLSearchParams(location.search);
   if (q.get("biz") === "1") {
@@ -752,6 +1041,9 @@ el("navCrear").addEventListener("click", () => {
     if ((location.hash || "").toLowerCase() === "#negocios") {
       const n = el("negocios");
       if (n) setTimeout(() => n.scrollIntoView({ behavior: "smooth" }), 100);
+    } else if ((location.hash || "").toLowerCase() === "#crear") {
+      const t = el("crear");
+      if (t) setTimeout(() => t.scrollIntoView({ behavior: "smooth" }), 100);
     }
   }
 })();

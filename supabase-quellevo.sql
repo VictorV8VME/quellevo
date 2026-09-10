@@ -123,3 +123,9 @@ create policy quellevo_rsvps_all on quellevo_rsvps
   for all using (true) with check (true);
 
 grant select, insert, update, delete on quellevo_rsvps to anon, authenticated;
+
+-- 5) Event closed / finalized flag (hide add/claim when true)
+alter table quellevo_events
+  add column if not exists closed boolean not null default false;
+
+create index if not exists quellevo_events_closed_idx on quellevo_events(closed);
