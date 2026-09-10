@@ -60,6 +60,8 @@ input { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid #c
   letter-spacing:.04em; padding:4px 8px; border-radius:999px; background:#fef3c7; color:var(--warn);
 }
 .badge.free { background:#dcfce7; color:var(--ok); }
+.badge.promo { background:#ecfdf5; color:var(--teal); }
+.badge.auspicia { background:#e0f2fe; color:#0369a1; }
 .muted { color:var(--muted); font-size:13px; }
 .err { color:#b91c1c; font-size:13px; margin-top:8px; }
 .okmsg { color:var(--ok); font-size:13px; margin-top:8px; }
@@ -69,6 +71,34 @@ input { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid #c
   border-radius:8px; font-weight:800; letter-spacing:.06em;
 }
 footer { margin-top:24px; color:var(--muted); font-size:12px; text-align:center; }
+/* Sponsors / ofertas */
+.sponsors-head {
+  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;
+}
+.sponsors-head h2 { margin:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.sponsors-toggle {
+  border:0; background:#f0f7f5; color:var(--navy); border-radius:8px;
+  width:36px; height:36px; font-size:16px; cursor:pointer; font-weight:800;
+}
+.sponsor-card {
+  display:flex; flex-direction:column; gap:6px;
+  padding:10px 12px; margin-bottom:8px;
+  border:1px solid var(--line); border-radius:12px; background:#fafcfb;
+}
+.sponsor-card:last-of-type { margin-bottom:0; }
+.sponsor-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.sponsor-name { font-weight:800; font-size:14px; }
+.sponsor-kind { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+.sponsor-promo { font-size:13px; line-height:1.35; color:var(--ink); }
+.sponsor-cta { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.sponsor-cta .btn { width:auto; }
+.sponsors-more { width:100%; margin-top:8px; }
+.sponsors-biz { margin:10px 0 0; text-align:center; }
+.sponsors-biz a { color:var(--muted); text-decoration:underline; text-underline-offset:2px; font-size:12px; }
+.sponsors-biz a:hover { color:var(--teal); }
+.sponsors-body.collapsed .sponsor-card,
+.sponsors-body.collapsed .sponsors-more { display:none !important; }
+.sponsors-demo-hint { font-size:11px; color:var(--muted); margin:0 0 8px; }
 </style>
 </head>
 <body>
@@ -108,6 +138,22 @@ footer { margin-top:24px; color:var(--muted); font-size:12px; text-align:center;
       </div>
       <p class="okmsg hidden" id="shareOk">Link copiado</p>
     </div>
+
+    <div class="card" id="sponsorsCard">
+      <div class="sponsors-head">
+        <h2>Ofertas para el asado <span class="badge auspicia">Auspicia</span></h2>
+        <button type="button" class="sponsors-toggle" id="sponsorsToggle" aria-expanded="true" title="Mostrar u ocultar">▾</button>
+      </div>
+      <div class="sponsors-body" id="sponsorsBody">
+        <p class="sponsors-demo-hint hidden" id="sponsorsDemoHint">Ejemplos demo · Paso de los Libres</p>
+        <div id="sponsorsList"></div>
+        <button type="button" class="btn btn-ghost btn-sm sponsors-more hidden" id="sponsorsMore">Ver más</button>
+        <p class="muted sponsors-biz">
+          <a id="sponsorsBizLink" href="#">¿Tenés un negocio? Publicá tu oferta</a>
+        </p>
+      </div>
+    </div>
+
     <div class="card">
       <h2>¿Qué llevamos?</h2>
       <div id="itemList"></div>
@@ -125,6 +171,7 @@ footer { margin-top:24px; color:var(--muted); font-size:12px; text-align:center;
   <footer>QuéLlevo · MVP gratis</footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1"></script>
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

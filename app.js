@@ -7,7 +7,63 @@ const TEMPLATES = {
   otro: ["Traer algo", "Bebidas", "Extra"],
 };
 const KIND_LABEL = { asado: "Asado", fiesta: "Fiesta", cena: "Cena", otro: "Otro" };
+const KIND_SPONSOR = { carniceria: "Carnicería", super: "Súper", bebidas: "Bebidas", otro: "Comercio" };
+
+/** Contacto para comercios interesados (editable en config.js). */
+const BIZ = {
+  email: (window.QUELLEVO_CONFIG && window.QUELLEVO_CONFIG.bizEmail) || "victor11espindola@gmail.com",
+  whatsapp: (window.QUELLEVO_CONFIG && window.QUELLEVO_CONFIG.bizWhatsApp) || "5493756000000",
+};
+
+/** Demo local — Paso de los Libres (inventados, flag demo:true). */
+const DEMO_SPONSORS = [
+  {
+    id: "demo-elcorte",
+    name: "Carnicería El Corte",
+    kind: "carniceria",
+    promo_text: "10% en vacuno con código QUELLEV0",
+    whatsapp: "5493756111111",
+    url: null,
+    city: "Paso de los Libres",
+    active: true,
+    sort: 1,
+    expires_at: null,
+    demo: true,
+  },
+  {
+    id: "demo-superlibres",
+    name: "Super Libres",
+    kind: "super",
+    promo_text: "2x1 en gaseosas los sábados",
+    whatsapp: null,
+    url: "https://example.com/super-libres-demo",
+    city: "Paso de los Libres",
+    active: true,
+    sort: 2,
+    expires_at: null,
+    demo: true,
+  },
+  {
+    id: "demo-puente",
+    name: "Hielo & Carbón del Puente",
+    kind: "bebidas",
+    promo_text: "Combo hielo + carbón a precio fijo (demo)",
+    whatsapp: "5493756222222",
+    url: null,
+    city: "Paso de los Libres",
+    active: true,
+    sort: 3,
+    expires_at: null,
+    demo: true,
+  },
+];
+
+const SPONSORS_VISIBLE = 2;
 let kind = "asado", sb = null, online = false, eventRow = null, items = [];
+let sponsors = DEMO_SPONSORS.slice();
+let sponsorsExpanded = false;
+let sponsorsCollapsed = false;
+
 function el(id) { return document.getElementById(id); }
 function codeGen() {
   const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -31,10 +87,98 @@ function showErr(msg) {
   e.textContent = msg || "";
   e.classList.toggle("hidden", !msg);
 }
+function bizPublishHref() {
+  const subject = encodeURIComponent("QuéLlevo — quiero publicar una oferta");
+  const body = encodeURIComponent("Hola Victor,\n\nTengo un comercio en Paso de los Libres y me gustaría auspicar en QuéLlevo.\n\nNombre del local:\nTipo (carnicería / súper):\nPromo:\nWhatsApp:\n");
+  if (BIZ.email) return "mailto:" + BIZ.email + "?subject=" + subject + "&body=" + body;
+  const wa = String(BIZ.whatsapp || "").replace(/\D/g, "");
+  return "https://wa.me/" + wa + "?text=" + encodeURIComponent("Hola, quiero publicar una oferta en QuéLlevo");
+}
+function sponsorCta(s) {
+  const parts = [];
+  if (s.whatsapp) {
+    const wa = String(s.whatsapp).replace(/\D/g, "");
+    const msg = encodeURIComponent("Hola, vi la promo en QuéLlevo: " + (s.promo_text || ""));
+    parts.push('<a class="btn btn-sm" href="https://wa.me/' + wa + '?text=' + msg + '" target="_blank" rel="noopener">WhatsApp</a>');
+  }
+  if (s.url) {
+    parts.push('<a class="btn btn-ghost btn-sm" href="' + escapeHtml(s.url) + '" target="_blank" rel="noopener">Ver</a>');
+  }
+  return parts.join("") || "";
+}
+function activeSponsors(list) {
+  const now = Date.now();
+  return (list || []).filter((s) => {
+    if (s.active === false) return false;
+    if (s.expires_at) {
+      try { if (new Date(s.expires_at).getTime() < now) return false; } catch (_) {}
+    }
+    return true;
+  }).slice().sort((a, b) => (a.sort || 0) - (b.sort || 0));
+}
+async function loadSponsors() {
+  sponsors = DEMO_SPONSORS.slice();
+  if (sb) {
+    try {
+      const { data, error } = await sb.from("quellevo_sponsors")
+        .select("id,name,kind,promo_text,whatsapp,url,city,active,sort,expires_at")
+        .eq("active", true)
+        .order("sort", { ascending: true });
+      if (!error && data && data.length) {
+        sponsors = data.map((row) => Object.assign({ demo: false }, row));
+      }
+    } catch (_) { /* table may not exist yet → keep demo */ }
+  }
+  renderSponsors();
+}
+function renderSponsors() {
+  const listEl = el("sponsorsList");
+  const moreBtn = el("sponsorsMore");
+  const hint = el("sponsorsDemoHint");
+  const body = el("sponsorsBody");
+  const toggle = el("sponsorsToggle");
+  const biz = el("sponsorsBizLink");
+  if (!listEl) return;
+  if (biz) biz.href = bizPublishHref();
+  const list = activeSponsors(sponsors);
+  const allDemo = list.length && list.every((s) => s.demo);
+  if (hint) hint.classList.toggle("hidden", !allDemo);
+  body.classList.toggle("collapsed", sponsorsCollapsed);
+  toggle.setAttribute("aria-expanded", sponsorsCollapsed ? "false" : "true");
+  toggle.textContent = sponsorsCollapsed ? "▸" : "▾";
+  if (!list.length) {
+    listEl.innerHTML = "<p class='muted'>Pronto habrá ofertas de comercios locales.</p>";
+    moreBtn.classList.add("hidden");
+    return;
+  }
+  const visible = sponsorsExpanded ? list : list.slice(0, SPONSORS_VISIBLE);
+  listEl.innerHTML = visible.map((s) => {
+    const kindLabel = KIND_SPONSOR[s.kind] || s.kind || "Comercio";
+    const badge = s.demo
+      ? '<span class="badge promo">Demo</span>'
+      : '<span class="badge promo">Promo</span>';
+    return (
+      '<div class="sponsor-card">' +
+        '<div class="sponsor-top">' +
+          '<div><div class="sponsor-name">' + escapeHtml(s.name) + '</div>' +
+          '<div class="sponsor-kind">' + escapeHtml(kindLabel) + (s.city ? " · " + escapeHtml(s.city) : "") + '</div></div>' +
+          badge +
+        '</div>' +
+        '<div class="sponsor-promo">' + escapeHtml(s.promo_text) + '</div>' +
+        '<div class="sponsor-cta">' + sponsorCta(s) + '</div>' +
+      '</div>'
+    );
+  }).join("");
+  const hasMore = list.length > SPONSORS_VISIBLE;
+  moreBtn.classList.toggle("hidden", !hasMore);
+  moreBtn.textContent = sponsorsExpanded ? "Ver menos" : ("Ver más (" + (list.length - SPONSORS_VISIBLE) + ")");
+}
 async function initSb() {
   try {
-    if (!window.supabase || !SITE.supabaseUrl || !SITE.supabaseKey) return false;
-    sb = window.supabase.createClient(SITE.supabaseUrl, SITE.supabaseKey);
+    const url = (window.QUELLEVO_CONFIG && window.QUELLEVO_CONFIG.supabaseUrl) || SITE.supabaseUrl;
+    const key = (window.QUELLEVO_CONFIG && window.QUELLEVO_CONFIG.supabaseAnonKey) || SITE.supabaseKey;
+    if (!window.supabase || !url || !key) return false;
+    sb = window.supabase.createClient(url, key);
     const { error } = await sb.from("quellevo_events").select("id").limit(1);
     if (error) {
       online = false;
@@ -118,6 +262,7 @@ function renderEvent() {
   const link = eventUrl(eventRow.code);
   el("waShare").href = "https://wa.me/?text=" + encodeURIComponent("QuéLlevo — " + eventRow.title + "\nAnotá qué llevás:\n" + link);
   renderItems();
+  loadSponsors();
 }
 function renderItems() {
   const root = el("itemList");
@@ -202,6 +347,14 @@ el("newEvent").addEventListener("click", () => {
   eventRow = null; items = [];
   el("eventView").classList.add("hidden");
   el("homeView").classList.remove("hidden");
+});
+el("sponsorsToggle").addEventListener("click", () => {
+  sponsorsCollapsed = !sponsorsCollapsed;
+  renderSponsors();
+});
+el("sponsorsMore").addEventListener("click", () => {
+  sponsorsExpanded = !sponsorsExpanded;
+  renderSponsors();
 });
 (async function boot() {
   const saved = localStorage.getItem("ql_name") || "";
