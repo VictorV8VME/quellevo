@@ -129,3 +129,25 @@ alter table quellevo_events
   add column if not exists closed boolean not null default false;
 
 create index if not exists quellevo_events_closed_idx on quellevo_events(closed);
+
+-- 6) Multi-claimants per item (several people can bring the same thing)
+-- Prefer jsonb claimants[]; keep claimed_by as display / backward-compat
+-- (plain name, or JSON array string when multiple).
+alter table quellevo_items
+  add column if not exists claimants jsonb not null default '[]'::jsonb;
+
+-- Migrate legacy single claimed_by → claimants (plain name only)
+update quellevo_items
+set claimants = jsonb_build_array(trim(claimed_by))
+where claimed_by is not null
+  and trim(claimed_by) <> ''
+  and left(trim(claimed_by), 1) <> '['
+  and (claimants is null or claimants = '[]'::jsonb);
+
+-- Migrate JSON-encoded claimed_by arrays → claimants
+update quellevo_items
+set claimants = trim(claimed_by)::jsonb
+where claimed_by is not null
+  and left(trim(claimed_by), 1) = '['
+  and (claimants is null or claimants = '[]'::jsonb)
+  and jsonb_typeof(trim(claimed_by)::jsonb) = 'array';

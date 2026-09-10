@@ -112,9 +112,12 @@ let rsvpTableOk = false;
 let guestsColOk = false;
 let categoryColOk = true;
 let closedColOk = true;
+let claimantsColOk = false;
 let toastTimer = null;
 let demoItems = DEMO_ITEMS_DEFAULT.map((x) => Object.assign({}, x));
 let namePromptTimer = null;
+let itemsSummaryExpanded = false;
+let itemsSoloLibres = false;
 
 function el(id) { return document.getElementById(id); }
 function codeGen() {
@@ -125,6 +128,78 @@ function codeGen() {
 }
 function escapeHtml(s) {
   return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+}
+
+/** Parse claimants: prefer claimants jsonb/array; else claimed_by as JSON array or plain name. */
+function parseClaimants(it) {
+  if (!it) return [];
+  if (Array.isArray(it.claimants)) {
+    return it.claimants.map((n) => String(n || "").trim()).filter(Boolean);
+  }
+  if (typeof it.claimants === "string" && it.claimants.trim()) {
+    try {
+      const p = JSON.parse(it.claimants);
+      if (Array.isArray(p)) return p.map((n) => String(n || "").trim()).filter(Boolean);
+    } catch (_) {}
+  }
+  const cb = it.claimed_by;
+  if (cb == null || !String(cb).trim()) return [];
+  const s = String(cb).trim();
+  if (s.charAt(0) === "[") {
+    try {
+      const p = JSON.parse(s);
+      if (Array.isArray(p)) return p.map((n) => String(n || "").trim()).filter(Boolean);
+    } catch (_) {}
+  }
+  return [s];
+}
+function namesEqual(a, b) {
+  return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+}
+function hasClaimant(it, name) {
+  if (!name) return false;
+  return parseClaimants(it).some((n) => namesEqual(n, name));
+}
+/** Serialize for storage: claimed_by plain if 1, JSON array if 2+; claimants always array. */
+function serializeClaimants(names) {
+  const list = [];
+  const seen = {};
+  (names || []).forEach((n) => {
+    const t = String(n || "").trim();
+    if (!t) return;
+    const k = t.toLowerCase();
+    if (seen[k]) return;
+    seen[k] = true;
+    list.push(t);
+  });
+  if (!list.length) return { claimed_by: null, claimants: [] };
+  if (list.length === 1) return { claimed_by: list[0], claimants: list };
+  return { claimed_by: JSON.stringify(list), claimants: list };
+}
+function applyClaimantsToItem(it, names) {
+  const ser = serializeClaimants(names);
+  it.claimed_by = ser.claimed_by;
+  it.claimants = ser.claimants;
+  return ser;
+}
+function formatLleva(names, my) {
+  if (!names || !names.length) return "";
+  const parts = names.map((n) => {
+    const mark = my && namesEqual(n, my) ? " (vos)" : "";
+    return escapeHtml(n) + mark;
+  });
+  return "Lleva: " + parts.join(", ");
+}
+function itemIsFree(it) {
+  return parseClaimants(it).length === 0;
+}
+
+function normalizeItem(it) {
+  const row = Object.assign({ category: "otro" }, it);
+  row.category = normCat(row.category);
+  const names = parseClaimants(row);
+  applyClaimantsToItem(row, names);
+  return row;
 }
 function myName() { return (el("guestName") && el("guestName").value || localStorage.getItem("ql_name") || "").trim(); }
 function setMyName(n) {
@@ -257,26 +332,35 @@ function activeSponsors(list) {
 function renderDemo() {
   const root = el("demoList");
   if (!root) return;
-  root.innerHTML = demoItems.map((it) => {
-    const claimed = !!(it.claimed_by && String(it.claimed_by).trim());
-    const mine = claimed && it.claimed_by === "Vos";
+  const sorted = demoItems.slice().sort((a, b) => {
+    const af = itemIsFree(a) ? 0 : 1;
+    const bf = itemIsFree(b) ? 0 : 1;
+    return af - bf;
+  });
+  root.innerHTML = sorted.map((it) => {
+    const names = parseClaimants(it);
+    const free = names.length === 0;
+    const mine = hasClaimant(it, "Vos");
     let btn = "";
-    if (!claimed) {
-      btn = '<button class="btn btn-sm" type="button" data-demo-claim="' + escapeHtml(it.id) + '">Yo llevo</button>';
+    if (free) {
+      btn = '<button class="btn btn-sm btn-claim-cta" type="button" data-demo-claim="' + escapeHtml(it.id) + '">Yo llevo</button>';
     } else if (mine) {
       btn = '<button class="btn btn-ghost btn-sm" type="button" data-demo-unclaim="' + escapeHtml(it.id) + '">Soltar</button>';
     } else {
-      btn = '<span class="badge">ocupado</span>';
+      btn = '<button class="btn btn-ghost btn-sm btn-sumarme" type="button" data-demo-join="' + escapeHtml(it.id) + '">Sumarme</button>';
     }
+    const statusIcon = free
+      ? '<span class="item-icon item-icon-free" aria-hidden="true">+</span>'
+      : '<span class="item-icon item-icon-ok" aria-hidden="true">✓</span>';
+    const chip = free
+      ? '<span class="badge free">Libre</span>'
+      : '<span class="badge badge-lleva">' + formatLleva(names, "Vos") + '</span>';
     return (
-      '<div class="demo-row">' +
-        '<span>' + escapeHtml(it.label) + '</span>' +
-        '<span class="demo-right">' +
-          (claimed
-            ? '<span class="who">Lleva: ' + escapeHtml(it.claimed_by) + '</span>'
-            : '<span class="badge free">libre</span>') +
-          " " + btn +
-        "</span>" +
+      '<div class="demo-row item-row ' + (free ? "item-free" : "item-occupied") + '">' +
+        '<span class="item-main">' + statusIcon +
+          '<span class="item-label">' + escapeHtml(it.label) + '</span>' +
+        '</span>' +
+        '<span class="demo-right">' + chip + " " + btn + '</span>' +
       "</div>"
     );
   }).join("");
@@ -284,22 +368,37 @@ function renderDemo() {
     b.addEventListener("click", () => {
       const id = b.getAttribute("data-demo-claim");
       const it = demoItems.find((x) => x.id === id);
-      if (it && !it.claimed_by) {
-        it.claimed_by = "Vos";
+      if (it && itemIsFree(it)) {
+        applyClaimantsToItem(it, ["Vos"]);
         renderDemo();
         toast("Demo: anotaste “" + it.label + "” (solo acá)");
       }
+    });
+  });
+  root.querySelectorAll("[data-demo-join]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const id = b.getAttribute("data-demo-join");
+      const it = demoItems.find((x) => x.id === id);
+      if (!it) return;
+      const names = parseClaimants(it);
+      const other = names[0] || "Alguien";
+      const ok = confirm(other + " ya lleva " + it.label + ". ¿Igual querés sumarte?");
+      if (!ok) return;
+      applyClaimantsToItem(it, names.concat(["Vos"]));
+      renderDemo();
+      toast("Demo: te sumaste a “" + it.label + "”");
     });
   });
   root.querySelectorAll("[data-demo-unclaim]").forEach((b) => {
     b.addEventListener("click", () => {
       const id = b.getAttribute("data-demo-unclaim");
       const it = demoItems.find((x) => x.id === id);
-      if (it) {
-        it.claimed_by = null;
-        renderDemo();
-        toast("Demo: soltaste el ítem");
-      }
+      if (!it) return;
+      if (!confirm("¿Soltar " + it.label + "?")) return;
+      const next = parseClaimants(it).filter((n) => !namesEqual(n, "Vos"));
+      applyClaimantsToItem(it, next);
+      renderDemo();
+      toast("Demo: soltaste el ítem");
     });
   });
 }
@@ -402,6 +501,10 @@ async function initSb() {
       const { error: eC } = await sb.from("quellevo_events").select("closed").limit(1);
       closedColOk = !eC;
     } catch (_) { closedColOk = false; }
+    try {
+      const { error: eCl } = await sb.from("quellevo_items").select("claimants").limit(1);
+      claimantsColOk = !eCl;
+    } catch (_) { claimantsColOk = false; }
     return true;
   } catch (e) {
     online = false;
@@ -456,7 +559,7 @@ async function createEvent() {
       if (e2) throw e2;
       eventRow = ev;
       if (eventRow.closed == null) eventRow.closed = false;
-      items = (its || []).map((it) => Object.assign({ category: "otro" }, it));
+      items = (its || []).map(normalizeItem);
       rsvps = {};
       markHost(code);
       await setRsvp("voy", host, true);
@@ -471,6 +574,7 @@ async function createEvent() {
         label: t.label,
         category: t.category,
         claimed_by: null,
+        claimants: [],
       }));
       rsvps = {};
       rsvps[host.toLowerCase()] = "voy";
@@ -516,7 +620,7 @@ async function loadEvent(code) {
       if (e2) throw e2;
       eventRow = ev;
       if (eventRow.closed == null) eventRow.closed = false;
-      items = (its || []).map((it) => Object.assign({ category: normCat(it.category) }, it));
+      items = (its || []).map(normalizeItem);
       await loadRsvps();
     } else {
       const pack = localLoad(code);
@@ -526,7 +630,7 @@ async function loadEvent(code) {
       }
       eventRow = pack.event;
       if (eventRow.closed == null) eventRow.closed = false;
-      items = (pack.items || []).map((it) => Object.assign({ category: normCat(it.category) }, it));
+      items = (pack.items || []).map(normalizeItem);
       rsvps = pack.rsvps || loadLocalRsvps(code);
     }
     showViews("event");
@@ -602,16 +706,48 @@ function renderRsvp() {
   const closed = isClosed(eventRow);
   document.querySelectorAll(".rsvp-btn").forEach((b) => {
     const st = b.getAttribute("data-rsvp");
-    b.classList.toggle("rsvp-on", !!(mine && rsvps[mine] === st));
+    const on = !!(mine && rsvps[mine] === st);
+    b.classList.toggle("rsvp-on", on);
+    b.classList.toggle("rsvp-on-voy", on && st === "voy");
+    b.classList.toggle("rsvp-on-talvez", on && st === "talvez");
+    b.classList.toggle("rsvp-on-no", on && st === "no");
     b.disabled = closed;
   });
   const counts = { voy: 0, talvez: 0, no: 0 };
   Object.values(rsvps).forEach((s) => { if (counts[s] != null) counts[s]++; });
+  const total = counts.voy + counts.talvez + counts.no;
+  const chips = [];
+  if (counts.voy) chips.push('<span class="rsvp-chip rsvp-chip-voy">' + counts.voy + " van</span>");
+  if (counts.talvez) chips.push('<span class="rsvp-chip rsvp-chip-talvez">' + counts.talvez + " tal vez</span>");
+  if (counts.no) chips.push('<span class="rsvp-chip rsvp-chip-no">' + counts.no + " no van</span>");
+  if (summary) {
+    if (chips.length) {
+      summary.innerHTML = (total ? total + " personas · " : "") + chips.join(" ");
+    } else {
+      summary.textContent = "Todavía nadie confirmó.";
+    }
+  }
+  updateItemsHeaderStats(counts);
+}
+
+function updateItemsHeaderStats(counts) {
+  const stats = el("itemsHeaderStats");
+  if (!stats) return;
+  if (!counts) {
+    counts = { voy: 0, talvez: 0, no: 0 };
+    Object.values(rsvps).forEach((s) => { if (counts[s] != null) counts[s]++; });
+  }
+  const totalPeople = counts.voy + counts.talvez + counts.no;
+  const freeN = items.filter(itemIsFree).length;
   const parts = [];
+  if (totalPeople) parts.push(totalPeople + " personas");
   if (counts.voy) parts.push(counts.voy + " van");
   if (counts.talvez) parts.push(counts.talvez + " tal vez");
-  if (counts.no) parts.push(counts.no + " no van");
-  if (summary) summary.textContent = parts.length ? parts.join(" · ") : "Todavía nadie confirmó.";
+  if (freeN > 0) parts.push("Falta " + freeN + " ítem" + (freeN === 1 ? "" : "s"));
+  else if (items.length) parts.push("Todo cubierto");
+  stats.textContent = parts.length ? parts.join(" · ") : "";
+  const covered = el("itemsAllCovered");
+  if (covered) covered.classList.toggle("hidden", !(items.length && freeN === 0));
 }
 
 function renderEvent(justCreated) {
@@ -656,44 +792,111 @@ function renderItems() {
   const root = el("itemList");
   if (!root) return;
   const closed = isClosed(eventRow);
+  const me = myName();
+  updateItemsHeaderStats();
+
+  const freeCount = items.filter(itemIsFree).length;
+  const occupiedCount = items.length - freeCount;
+  const missingLabels = items.filter(itemIsFree).map((it) => it.label);
+  const summaryLine = el("itemsSummaryLine");
+  const summaryDetail = el("itemsSummaryDetail");
+  const summaryEl = el("itemsSummary");
+  if (summaryLine) {
+    if (!items.length) {
+      summaryLine.textContent = "Sin ítems todavía";
+    } else if (freeCount === 0) {
+      summaryLine.textContent = occupiedCount + " de " + items.length + " cubiertos · Todo cubierto";
+    } else {
+      const miss = missingLabels.slice(0, 4).join(", ") + (missingLabels.length > 4 ? "…" : "");
+      summaryLine.textContent = occupiedCount + " de " + items.length + " cubiertos · falta " + miss;
+    }
+  }
+  if (summaryDetail) {
+    if (itemsSummaryExpanded && items.length) {
+      const bits = [];
+      if (freeCount) bits.push("Libres: " + missingLabels.join(", "));
+      const occ = items.filter((it) => !itemIsFree(it)).map((it) => {
+        return it.label + " (" + parseClaimants(it).join(", ") + ")";
+      });
+      if (occ.length) bits.push("Con gente: " + occ.join(" · "));
+      summaryDetail.textContent = bits.join("  |  ");
+      summaryDetail.classList.remove("hidden");
+    } else {
+      summaryDetail.classList.add("hidden");
+      summaryDetail.textContent = "";
+    }
+  }
+  if (summaryEl) summaryEl.setAttribute("aria-expanded", itemsSummaryExpanded ? "true" : "false");
+
   if (!items.length) {
     root.innerHTML = "<p class='muted'>Todavía no hay nada en la lista.</p>";
     return;
   }
+
+  // Sort free first within each category; optional solo libres
   const byCat = {};
   CATEGORIES.forEach((c) => { byCat[c] = []; });
   items.forEach((it) => {
+    if (itemsSoloLibres && !itemIsFree(it)) return;
     const c = normCat(it.category);
     byCat[c].push(it);
   });
+  CATEGORIES.forEach((c) => {
+    byCat[c].sort((a, b) => {
+      const af = itemIsFree(a) ? 0 : 1;
+      const bf = itemIsFree(b) ? 0 : 1;
+      if (af !== bf) return af - bf;
+      return String(a.label || "").localeCompare(String(b.label || ""), "es");
+    });
+  });
+
   let html = "";
+  let any = false;
   CATEGORIES.forEach((c) => {
     const list = byCat[c];
     if (!list.length) return;
+    any = true;
     html += '<div class="cat-group"><div class="cat-title">' + escapeHtml(CAT_LABEL[c]) + "</div>";
     html += list.map((it) => {
-      const claimed = !!(it.claimed_by && String(it.claimed_by).trim());
-      const mine = claimed && myName() && it.claimed_by.trim().toLowerCase() === myName().toLowerCase();
+      const names = parseClaimants(it);
+      const free = names.length === 0;
+      const mine = me && hasClaimant(it, me);
       let btn = "";
       if (closed) {
-        btn = claimed
-          ? '<span class="badge">ocupado</span>'
-          : '<span class="badge free">libre</span>';
-      } else if (!claimed) {
-        btn = '<button class="btn btn-sm" data-claim="' + escapeHtml(it.id) + '" type="button">Yo llevo</button>';
+        btn = free
+          ? '<span class="badge free">Libre</span>'
+          : '<span class="badge badge-lleva">Lleva</span>';
+      } else if (free) {
+        btn = '<button class="btn btn-sm btn-claim-cta" data-claim="' + escapeHtml(it.id) + '" type="button">Yo llevo</button>';
       } else if (mine) {
         btn = '<button class="btn btn-ghost btn-sm" data-unclaim="' + escapeHtml(it.id) + '" type="button">Soltar</button>';
       } else {
-        btn = '<span class="badge">ocupado</span>';
+        btn = '<button class="btn btn-ghost btn-sm btn-sumarme" data-claim="' + escapeHtml(it.id) + '" type="button">Sumarme</button>';
       }
+      const statusIcon = free
+        ? '<span class="item-icon item-icon-free" aria-hidden="true">+</span>'
+        : '<span class="item-icon item-icon-ok" aria-hidden="true">✓</span>';
+      const whoHtml = free
+        ? '<span class="badge free">Libre</span>'
+        : '<span class="who">' + formatLleva(names, me) + "</span>";
       return (
-        '<div class="item"><div><div class="name">' + escapeHtml(it.label) + '</div><div class="who">' +
-        (claimed ? ("Lleva: " + escapeHtml(it.claimed_by)) : (closed ? "" : "<span class='badge free'>libre</span>")) +
-        "</div></div>" + btn + "</div>"
+        '<div class="item item-row ' + (free ? "item-free" : "item-occupied") + '">' +
+          '<div class="item-left">' +
+            statusIcon +
+            '<div><div class="name">' + escapeHtml(it.label) + '</div>' +
+            '<div class="who-row">' + whoHtml + "</div></div>" +
+          "</div>" +
+          btn +
+        "</div>"
       );
     }).join("");
     html += "</div>";
   });
+  if (!any) {
+    html = itemsSoloLibres
+      ? "<p class='muted'>No hay ítems libres. Desactivá “Solo libres” para ver todos.</p>"
+      : "<p class='muted'>Todavía no hay nada en la lista.</p>";
+  }
   root.innerHTML = html;
   root.querySelectorAll("[data-claim]").forEach((b) => b.addEventListener("click", () => claim(b.getAttribute("data-claim"))));
   root.querySelectorAll("[data-unclaim]").forEach((b) => b.addEventListener("click", () => unclaim(b.getAttribute("data-unclaim"))));
@@ -704,17 +907,35 @@ async function claim(id) {
   const name = myName();
   if (!name) { promptName("Escribí tu nombre para anotar qué llevás."); return; }
   const it = items.find((x) => String(x.id) === String(id));
-  if (!it || it.claimed_by) return;
+  if (!it) return;
+  const names = parseClaimants(it);
+  if (hasClaimant(it, name)) {
+    toast("Ya estás en este ítem.");
+    return;
+  }
+  if (names.length) {
+    const other = names.join(", ");
+    const ok = confirm(other + " ya lleva " + it.label + ". ¿Igual querés sumarte?");
+    if (!ok) {
+      toast("Mejor elijo otra cosa");
+      return;
+    }
+  }
+  const next = names.concat([name]);
+  const ser = serializeClaimants(next);
   try {
     if (online) {
-      const { error } = await sb.from("quellevo_items").update({ claimed_by: name }).eq("id", id).is("claimed_by", null);
+      const payload = { claimed_by: ser.claimed_by };
+      if (claimantsColOk) payload.claimants = ser.claimants;
+      const { error } = await sb.from("quellevo_items").update(payload).eq("id", id);
       if (error) throw error;
       await refreshItems();
     } else {
-      it.claimed_by = name;
+      applyClaimantsToItem(it, next);
       localSave();
       renderItems();
     }
+    toast("Anotado: " + it.label);
   } catch (e) {
     console.error(e);
     toast("No se pudo anotar.");
@@ -724,18 +945,30 @@ async function claim(id) {
 
 async function unclaim(id) {
   if (isClosed(eventRow)) { toast("Este evento ya está finalizado."); return; }
+  const name = myName();
+  if (!name) { promptName("Escribí tu nombre para soltar un ítem."); return; }
   const it = items.find((x) => String(x.id) === String(id));
   if (!it) return;
+  if (!hasClaimant(it, name)) {
+    toast("No estás anotado en este ítem.");
+    return;
+  }
+  if (!confirm("¿Soltar " + it.label + "?")) return;
+  const next = parseClaimants(it).filter((n) => !namesEqual(n, name));
+  const ser = serializeClaimants(next);
   try {
     if (online) {
-      const { error } = await sb.from("quellevo_items").update({ claimed_by: null }).eq("id", id);
+      const payload = { claimed_by: ser.claimed_by };
+      if (claimantsColOk) payload.claimants = ser.claimants;
+      const { error } = await sb.from("quellevo_items").update(payload).eq("id", id);
       if (error) throw error;
       await refreshItems();
     } else {
-      it.claimed_by = null;
+      applyClaimantsToItem(it, next);
       localSave();
       renderItems();
     }
+    toast("Soltaste “" + it.label + "”");
   } catch (e) {
     console.error(e);
     toast("No se pudo soltar.");
@@ -756,7 +989,7 @@ async function addItem() {
       if (error) throw error;
       await refreshItems();
     } else {
-      items.push({ id: "li-" + Date.now(), event_id: eventRow.id, label, category, claimed_by: null });
+      items.push({ id: "li-" + Date.now(), event_id: eventRow.id, label, category, claimed_by: null, claimants: [] });
       localSave();
       renderItems();
     }
@@ -770,7 +1003,7 @@ async function refreshItems() {
   if (!online || !eventRow) return;
   const { data, error } = await sb.from("quellevo_items").select("*").eq("event_id", eventRow.id).order("created_at");
   if (!error) {
-    items = (data || []).map((it) => Object.assign({ category: normCat(it.category) }, it));
+    items = (data || []).map(normalizeItem);
     renderItems();
   }
 }
@@ -1018,6 +1251,24 @@ if (el("closedCta")) {
       const t = el("crear");
       if (t) t.scrollIntoView({ behavior: "smooth" });
     }, 50);
+  });
+}
+
+
+if (el("soloLibres")) {
+  el("soloLibres").addEventListener("change", () => {
+    itemsSoloLibres = !!el("soloLibres").checked;
+    renderItems();
+  });
+}
+if (el("itemsSummary")) {
+  const toggleSummary = () => {
+    itemsSummaryExpanded = !itemsSummaryExpanded;
+    renderItems();
+  };
+  el("itemsSummary").addEventListener("click", toggleSummary);
+  el("itemsSummary").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSummary(); }
   });
 }
 

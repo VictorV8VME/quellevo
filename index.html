@@ -186,9 +186,9 @@
     <div class="card" id="rsvpCard">
       <h2>¿Vas?</h2>
       <div class="rsvp-row" id="rsvpButtons">
-        <button type="button" class="btn btn-sm rsvp-btn" data-rsvp="voy">Voy</button>
-        <button type="button" class="btn btn-sm btn-ghost rsvp-btn" data-rsvp="talvez">Tal vez</button>
-        <button type="button" class="btn btn-sm btn-ghost rsvp-btn" data-rsvp="no">No voy</button>
+        <button type="button" class="btn btn-sm rsvp-btn rsvp-voy" data-rsvp="voy">Voy</button>
+        <button type="button" class="btn btn-sm btn-ghost rsvp-btn rsvp-talvez" data-rsvp="talvez">Tal vez</button>
+        <button type="button" class="btn btn-sm btn-ghost rsvp-btn rsvp-no" data-rsvp="no">No voy</button>
       </div>
       <p class="muted" id="rsvpSummary"></p>
     </div>
@@ -209,7 +209,19 @@
     </div>
 
     <div class="card" id="itemsCard">
-      <h2>¿Qué llevamos?</h2>
+      <div class="items-head">
+        <h2>¿Qué llevamos?</h2>
+        <label class="solo-libres-toggle">
+          <input type="checkbox" id="soloLibres" />
+          Solo libres
+        </label>
+      </div>
+      <div class="items-summary" id="itemsSummary" role="button" tabindex="0" aria-expanded="false">
+        <div class="items-summary-line" id="itemsSummaryLine"></div>
+        <div class="items-summary-detail hidden" id="itemsSummaryDetail"></div>
+      </div>
+      <p class="items-header-stats muted" id="itemsHeaderStats"></p>
+      <p class="items-all-covered hidden" id="itemsAllCovered">Todo cubierto. Solo falta que llegues.</p>
       <div id="itemList"></div>
       <div class="add-item-block" id="addItemBlock">
         <div class="row">
