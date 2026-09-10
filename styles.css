@@ -1,19 +1,21 @@
 :root {
-  --bg: #fff8f1;
+  --bg: #FFFBEA;
   --bg-card: #ffffff;
-  --ink: #2b1a12;
-  --ink-soft: #6b4a3a;
-  --muted: #9a7464;
-  --accent: #c45c26;
-  --accent-dark: #9a4318;
-  --accent-soft: #f3d5c0;
-  --green: #2f7d4b;
-  --green-soft: #d8f0e1;
-  --line: #edd9cb;
-  --shadow: 0 8px 24px rgba(74, 35, 12, 0.1);
+  --ink: #1C1E21;
+  --ink-soft: #4B4F56;
+  --muted: #65676B;
+  --accent: #E1306C;
+  --accent-dark: #C13584;
+  --accent-soft: #FCE7F0;
+  --green: #25D366;
+  --green-soft: #E7F9EF;
+  --line: #E8E0D0;
+  --shadow: 0 10px 28px rgba(28, 30, 33, 0.12);
   --radius: 18px;
   --touch: 48px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --yellow: #FFE600;
+  --alert: #ED4956;
   font-family: "Nunito", system-ui, -apple-system, sans-serif;
 }
 
@@ -29,8 +31,8 @@ body {
   padding: 0;
   min-height: 100%;
   background:
-    radial-gradient(ellipse at top, #ffe8d4 0%, transparent 55%),
-    linear-gradient(180deg, #fff8f1 0%, #f7ebe1 100%);
+    radial-gradient(ellipse at top, #FFF3B8 0%, transparent 55%),
+    linear-gradient(180deg, #FFFBEA 0%, #FFF8E1 100%);
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
@@ -100,9 +102,9 @@ button {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: #fff3cd;
-  color: #7a5b00;
-  border: 1px solid #f0d78c;
+  background: #FFE600;
+  color: #1C1E21;
+  border: 1px solid #E6CF00;
   border-radius: 999px;
   padding: 6px 10px;
   white-space: nowrap;
@@ -178,7 +180,7 @@ button {
   border: 1.5px solid var(--line);
   border-radius: 14px;
   padding: 12px 14px;
-  background: #fffdfb;
+  background: #FFFEF7;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -186,7 +188,7 @@ button {
 .input:focus,
 .select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(196, 92, 38, 0.18);
+  box-shadow: 0 0 0 3px rgba(225, 48, 108, 0.22);
 }
 
 .kind-grid {
@@ -199,7 +201,7 @@ button {
   min-height: 72px;
   border-radius: 14px;
   border: 1.5px solid var(--line);
-  background: #fffdfb;
+  background: #FFFEF7;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -232,7 +234,7 @@ button {
   margin: 4px 0 16px;
   padding: 10px 12px;
   border-radius: 14px;
-  background: #fff6ee;
+  background: #FFF8E1;
   border: 1px solid var(--line);
 }
 
@@ -277,7 +279,7 @@ button {
   width: 100%;
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 6px 16px rgba(196, 92, 38, 0.28);
+  box-shadow: 0 6px 16px rgba(225, 48, 108, 0.32);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -359,8 +361,8 @@ button {
   align-items: center;
   gap: 8px;
   margin-top: 12px;
-  background: #2b1a12;
-  color: #fff8f1;
+  background: #1C1E21;
+  color: #FFFBEA;
   border-radius: 12px;
   padding: 10px 12px;
   font-weight: 800;
@@ -420,12 +422,12 @@ button {
   padding: 12px;
   border-radius: 14px;
   border: 1.5px solid var(--line);
-  background: #fffdfb;
+  background: #FFFEF7;
 }
 
 .item.claimed {
   background: var(--green-soft);
-  border-color: #b7dfc5;
+  border-color: #A7E9C3;
 }
 
 .item-body {
@@ -491,7 +493,7 @@ button {
   left: 50%;
   bottom: calc(24px + var(--safe-bottom));
   transform: translateX(-50%);
-  background: #2b1a12;
+  background: #1C1E21;
   color: #fff;
   padding: 12px 18px;
   border-radius: 999px;
@@ -511,9 +513,9 @@ button {
 }
 
 .error-box {
-  background: #ffe8e8;
-  border: 1px solid #f0b4b4;
-  color: #8a1f1f;
+  background: #FFE0E6;
+  border: 1px solid #FFB3C1;
+  color: #FF0000;
   border-radius: 14px;
   padding: 14px;
   font-weight: 600;
@@ -547,7 +549,7 @@ button {
   min-height: 40px;
   border-radius: 12px;
   border: 1.5px solid var(--line);
-  background: #fffdfb;
+  background: #FFFEF7;
   font-weight: 800;
   color: var(--ink-soft);
 }
@@ -559,7 +561,7 @@ button {
   margin-bottom: 8px;
   border-radius: 14px;
   border: 1.5px solid var(--line);
-  background: #fffdfb;
+  background: #FFFEF7;
 }
 .sponsor-top {
   display: flex;
@@ -591,8 +593,8 @@ button {
   color: var(--green);
 }
 .badge.auspicia {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #FCE7F0;
+  color: #E1306C;
 }
 .sponsors-biz {
   text-align: center;

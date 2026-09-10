@@ -3,7 +3,7 @@
   "short_name": "QuéLlevo",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#f6f1e8",
-  "theme_color": "#12263a",
+  "background_color": "#FFFBEA",
+  "theme_color": "#E1306C",
   "lang": "es"
 }
